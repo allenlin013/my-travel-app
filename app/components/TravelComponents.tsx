@@ -402,12 +402,12 @@ export const AddSpotModal = ({ onClose, onSave }: any) => {
 export const ExpenseChart = ({ payerStats, exchangeRate }: any) => {
   // 莫蘭迪色系配色表
   const colors: Record<string, string> = {
-    "YenLin": "#D4A5A5", // 莫蘭迪粉 (主色)
-    "CC": "#8E9EAB",     // 莫蘭迪藍灰
-    "Fu": "#A7B49E",     // 莫蘭迪綠 (鼠尾草)
-    "Wen": "#D4C5A8",    // 莫蘭迪奶茶
+    "YenLin": "#8E9BAE", // 莫蘭迪藍
+    "CC": "#F4BAAF",     // 莫蘭迪粉
+    "Fu": "#BFD1C4",     // 莫蘭迪綠
+    "Wen": "#7D6252",    // 莫蘭迪卡其
     "Dad": "#8D9399",    // 莫蘭迪鐵灰
-    "Sister": "#C5B49E"  // 莫蘭迪橘褐
+    "Sister": "#DBB89C"  // 莫蘭迪奶茶
   };
 
   const data = PAYERS.map(p => {
