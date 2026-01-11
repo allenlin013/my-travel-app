@@ -12,8 +12,9 @@ export interface Spot {
   prevSpotName: string;
   cost: number;
   currency: string;
-  food?: string;      // 設為可選
-  shopping?: string;  // 設為可選
+  payer: string;      // 新增：付款人 (Me, Partner, Split)
+  food?: string;      
+  shopping?: string;  
 }
 
 // 定義每日行程介面
@@ -44,12 +45,11 @@ export const colors = {
 export const defaultExchangeRate = 0.215;
 
 export const initialFixedExpenses = [
-  { id: 'f1', title: '星宇航空機票 (TPE-UKB/KIX-TPE)', cost: 12000, currency: 'TWD', type: '固定' },
-  { id: 'f2', title: '大阪難波大和ROYNET飯店 (7晚)', cost: 120000, currency: 'JPY', type: '住宿' },
-  { id: 'f3', title: '日本 eSIM 網卡 (8天吃到飽)', cost: 600, currency: 'TWD', type: '雜支' }
+  { id: 'f1', title: '星宇航空機票 (TPE-UKB/KIX-TPE)', cost: 12000, currency: 'TWD', payer: 'Me', type: '固定' },
+  { id: 'f2', title: '大阪難波大和ROYNET飯店 (7晚)', cost: 120000, currency: 'JPY', payer: 'Split', type: '住宿' },
+  { id: 'f3', title: '日本 eSIM 網卡 (8天吃到飽)', cost: 600, currency: 'TWD', payer: 'Me', type: '雜支' }
 ];
 
-// 明確指定型別為 ItineraryDay[]
 export const itineraryData: ItineraryDay[] = [
   {
     day: 1, date: "04.11", area: "海之啟程：神戶灣與大阪燈火",
@@ -65,7 +65,8 @@ export const itineraryData: ItineraryDay[] = [
         mapUrl: "https://www.google.com/maps/search/?api=1&query=神戶機場",
         prevSpotName: "起始點",
         cost: 1100,
-        currency: 'JPY'
+        currency: 'JPY',
+        payer: 'Me'
       },
       { 
         id: 'd1-s2',
@@ -77,7 +78,8 @@ export const itineraryData: ItineraryDay[] = [
         food: "【明治軒】蛋包飯",
         shopping: "@cosme、大國藥妝",
         cost: 15000,
-        currency: 'JPY'
+        currency: 'JPY',
+        payer: 'Me'
       }
     ]
   },
@@ -96,7 +98,8 @@ export const itineraryData: ItineraryDay[] = [
         prevSpotName: "大阪飯店",
         food: "【藤菜美】醬油丸子",
         cost: 500,
-        currency: 'JPY'
+        currency: 'JPY',
+        payer: 'Me'
       },
       { 
         id: 'd2-s2',
@@ -107,7 +110,8 @@ export const itineraryData: ItineraryDay[] = [
         prevSpotName: "清水寺",
         food: "【鍵善良房】葛切粉",
         cost: 3000,
-        currency: 'JPY'
+        currency: 'JPY',
+        payer: 'Split'
       }
     ]
   },
@@ -125,7 +129,8 @@ export const itineraryData: ItineraryDay[] = [
         mapUrl: "https://www.google.com/maps/search/?api=1&query=日本環球影城",
         prevSpotName: "大阪飯店",
         cost: 25000,
-        currency: 'JPY' 
+        currency: 'JPY',
+        payer: 'Me' 
       }
     ]
   },
@@ -143,7 +148,8 @@ export const itineraryData: ItineraryDay[] = [
         mapUrl: "https://www.google.com/maps/search/?api=1&query=奈良公園",
         prevSpotName: "大阪飯店",
         cost: 4500,
-        currency: 'JPY' 
+        currency: 'JPY',
+        payer: 'Me' 
       }
     ]
   },
@@ -161,7 +167,8 @@ export const itineraryData: ItineraryDay[] = [
         mapUrl: "https://www.google.com/maps/search/?api=1&query=大阪城天守閣",
         prevSpotName: "大阪飯店",
         cost: 2000,
-        currency: 'JPY' 
+        currency: 'JPY',
+        payer: 'Me' 
       }
     ]
   },
@@ -179,7 +186,8 @@ export const itineraryData: ItineraryDay[] = [
         mapUrl: "https://www.google.com/maps/search/?api=1&query=梅田藍天大廈",
         prevSpotName: "大阪飯店",
         cost: 3000,
-        currency: 'JPY' 
+        currency: 'JPY',
+        payer: 'Partner' 
       }
     ]
   },
@@ -197,7 +205,8 @@ export const itineraryData: ItineraryDay[] = [
         mapUrl: "https://www.google.com/maps/search/?api=1&query=通天閣",
         prevSpotName: "大阪飯店",
         cost: 1200,
-        currency: 'JPY' 
+        currency: 'JPY',
+        payer: 'Me' 
       }
     ]
   },
@@ -215,7 +224,8 @@ export const itineraryData: ItineraryDay[] = [
         mapUrl: "https://www.google.com/maps/search/?api=1&query=臨空城Outlet",
         prevSpotName: "大阪飯店",
         cost: 50000,
-        currency: 'JPY' 
+        currency: 'JPY',
+        payer: 'Me' 
       },
       { 
         id: 'd8-s2',
@@ -225,7 +235,8 @@ export const itineraryData: ItineraryDay[] = [
         mapUrl: "https://www.google.com/maps/search/?api=1&query=關西國際機場",
         prevSpotName: "臨空城Outlet",
         cost: 0,
-        currency: 'JPY' 
+        currency: 'JPY',
+        payer: 'Me' 
       }
     ]
   }
