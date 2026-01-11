@@ -3,7 +3,7 @@
 import React, { useState } from 'react';
 import { Plane, Calendar, Wallet, RefreshCw, Map as MapIcon, Book, ListChecks } from 'lucide-react';
 import { colors, itineraryData, prepList, exchangeRate } from './data/itinerary';
-import { SpotCard, DetailModal } from './components/TravelComponents';
+import { SpotCard, DetailModal, DailyRouteMap } from './components/TravelComponents';
 
 export default function UltimateOsakaApp() {
   const [activeDay, setActiveDay] = useState(1);
@@ -13,7 +13,6 @@ export default function UltimateOsakaApp() {
 
   const currentDayData = itineraryData.find(d => d.day === activeDay) || itineraryData[0];
 
-  // 雙模式導航處理函數
   const handleNavigation = (mode: 'route' | 'spot') => {
     if (!selectedSpot) return;
     if (mode === 'spot') {
@@ -40,25 +39,26 @@ export default function UltimateOsakaApp() {
       </div>
 
       <div className="relative z-10">
+        {/* Header - 保持在頂部，供切換天數 */}
+        <header className="p-8 pb-4 text-center sticky top-0 bg-[#F7F3F2]/80 backdrop-blur-md z-40">
+          <div className="flex justify-between items-center mb-6">
+            <Plane size={18} style={{ color: colors.accent }} />
+            <h1 className="text-xl font-light tracking-[0.4em] uppercase">Kyoto Osaka</h1>
+            <div className="w-5" />
+          </div>
+          <div className="flex gap-3 overflow-x-auto no-scrollbar pb-2">
+            {itineraryData.map(d => (
+              <button key={d.day} onClick={() => setActiveDay(d.day)}
+                className={`flex-shrink-0 px-5 py-2 rounded-2xl text-[10px] tracking-widest transition-all ${activeDay === d.day ? "shadow-md scale-105" : "opacity-30"}`}
+                style={{ backgroundColor: activeDay === d.day ? colors.accent : "white", color: activeDay === d.day ? "white" : colors.text }}>
+                D{d.day}
+              </button>
+            ))}
+          </div>
+        </header>
+
         {activeTab === 'diary' && (
           <div className="animate-in fade-in duration-700">
-            <header className="p-8 pb-4 text-center sticky top-0 bg-[#F7F3F2]/80 backdrop-blur-md z-40">
-              <div className="flex justify-between items-center mb-6">
-                <Plane size={18} style={{ color: colors.accent }} />
-                <h1 className="text-xl font-light tracking-[0.4em] uppercase">Kyoto Osaka</h1>
-                <div className="w-5" />
-              </div>
-              <div className="flex gap-3 overflow-x-auto no-scrollbar pb-2">
-                {itineraryData.map(d => (
-                  <button key={d.day} onClick={() => setActiveDay(d.day)}
-                    className={`flex-shrink-0 px-5 py-2 rounded-2xl text-[10px] tracking-widest transition-all ${activeDay === d.day ? "shadow-md scale-105" : "opacity-30"}`}
-                    style={{ backgroundColor: activeDay === d.day ? colors.accent : "white", color: activeDay === d.day ? "white" : colors.text }}>
-                    D{d.day}
-                  </button>
-                ))}
-              </div>
-            </header>
-
             <main className="px-6">
               <div className="relative h-52 rounded-[3.5rem] overflow-hidden mb-8 shadow-2xl">
                 <img src={currentDayData.image} className="w-full h-full object-cover" alt="Scenery" 
@@ -83,6 +83,14 @@ export default function UltimateOsakaApp() {
                 ))}
               </div>
             </main>
+          </div>
+        )}
+
+        {/* Guide Tab - 現在顯示每日完整路線圖 */}
+        {activeTab === 'guide' && (
+          <div className="p-10 animate-in fade-in duration-500">
+            <h2 className="text-2xl font-light tracking-[0.4em] text-center mb-10 uppercase">Guide Map</h2>
+            <DailyRouteMap dayData={currentDayData} colors={colors} />
           </div>
         )}
 
@@ -139,7 +147,7 @@ export default function UltimateOsakaApp() {
         <DetailModal spot={selectedSpot} colors={colors} onClose={() => setSelectedSpot(null)} onNav={handleNavigation} />
       )}
 
-      {/* 底部導航 */}
+      {/* 底部導覽 */}
       <footer className="fixed bottom-0 w-full bg-white/80 backdrop-blur-xl border-t border-pink-50 p-8 flex justify-around items-center z-[50]">
         {[
           { id: 'diary', icon: Book, label: 'Diary' },
