@@ -27,7 +27,7 @@ export default function UltimateOsakaApp() {
   const itineraryData = [
     {
       day: 1, date: "04.11", area: "海之啟程：神戶灣與大阪燈火",
-      image: "/images/day1.png", // 建議生成：神戶機場海上日落圖
+      image: "/images/day1.jpg", // 建議生成：神戶機場海上日落圖
       guideStory: "「歡迎來到關西。今日我們從精緻的海上機場 UKB 入境，這是我為您挑選最優雅的避開人潮方式。當高速船劃過大阪灣，您會看見這座城市正以霓虹與海浪迎接您的到來。」",
       spots: [
         { 
@@ -52,7 +52,7 @@ export default function UltimateOsakaApp() {
     },
     {
       day: 2, date: "04.12", area: "古都靈魂：清水寺與花見小路",
-      image: "/images/day2.png", // 建議生成：櫻花花瓣飄落在京都石板路圖
+      image: "/images/day2.jpg", // 建議生成：櫻花花瓣飄落在京都石板路圖
       guideStory: "「京都的春天，美在靜謐。今日我們不趕路，要在二寧坂的石板路上尋找落櫻的蹤跡。清水舞台的木頭香氣，會讓您忘記都市的塵囂。」",
       spots: [
         { 
@@ -76,7 +76,7 @@ export default function UltimateOsakaApp() {
     },
     {
       day: 3, date: "04.13", area: "奇幻冒險：USJ 全日狂歡",
-      image: "/images/day3.png",
+      image: "/images/day3.jpg",
       guideStory: "「放開平日的緊繃，今日我們都是孩子。在任天堂世界裡，您就是馬力歐，在霍格華茲，您擁有魔法。」",
       spots: [
         { time: "08:30", title: "日本環球影城 (USJ)", tag: "樂園", details: "【歷史】2001年開幕，現為世界級主題樂園。【位置】大阪港區此花。【亮點】超級任天堂世界必衝。下午5點後哈利波特區燈光漸起，魔幻感十足。", access: "JR 櫻島線直達 Universal City。", mapUrl: "https://www.google.com/maps/search/?api=1&query=USJ", price: "¥25,000" }
@@ -84,7 +84,7 @@ export default function UltimateOsakaApp() {
     },
     {
       day: 4, date: "04.14", area: "奈良鹿鳴：東大寺與春日大社",
-      image: "/images/day4.png",
+      image: "/images/day4.jpg",
       guideStory: "「奈良的鹿是神的使者。在東大寺大佛的注視下，我們感受人的渺小與自然的共生。」",
       spots: [
         { time: "10:00", title: "奈良公園 / 東大寺", tag: "自然", details: "【歷史】建於8世紀，大佛殿是世界最大木造建築。【特色】1,200隻鹿在櫻花樹下漫步。請買份鹿仙貝，優雅地與牠們共舞。", access: "近鐵奈良線特急直達。", mapUrl: "https://www.google.com/maps/search/?api=1&query=Nara+Park", price: "¥4,500" }
@@ -92,7 +92,7 @@ export default function UltimateOsakaApp() {
     },
     {
       day: 5, date: "04.15", area: "英雄史詩：大阪城與櫻之園",
-      image: "/images/day5.png",
+      image: "/images/day5.jpg",
       guideStory: "「大阪城的天守閣見證了戰國梟雄的起落。今日這裡不談戰爭，只談春櫻下的寧靜。」",
       spots: [
         { time: "10:30", title: "大阪城公園 / 天守閣", tag: "史蹟", details: "【歷史】豐臣秀吉所築，德川家康重建。金色的脊樑與莫蘭迪綠的瓦片相映成趣。【位置】中央區大阪城公園。重點推薦西之丸庭園。", access: "JR 環狀線至大阪城公園站。", mapUrl: "https://www.google.com/maps/search/?api=1&query=Osaka+Castle", price: "¥2,000" }
@@ -100,7 +100,7 @@ export default function UltimateOsakaApp() {
     },
     {
       day: 6, date: "04.16", area: "幾何都會：梅田展望與美妝購物",
-      image: "/images/day6.png",
+      image: "/images/day6.jpg",
       guideStory: "「梅田是大阪的未來感中心。站在藍天大廈看夕陽墜入大廈間，那種現代感的美學令人屏息。」",
       spots: [
         { time: "11:00", title: "梅田藍天大廈 / 空中庭園", tag: "現代", details: "【歷史】1993年落成，獲選世界20大建築。兩座塔樓在空中相連，形成壯闊的環型展望台。", access: "大阪站步行10分鐘。", mapUrl: "https://www.google.com/maps/search/?api=1&query=Umeda+Sky+Building", price: "¥3,000" }
@@ -108,7 +108,7 @@ export default function UltimateOsakaApp() {
     },
     {
       day: 7, date: "04.17", area: "昭和情懷：通天閣與下町風味",
-      image: "/images/day7.png",
+      image: "/images/day7.jpg",
       guideStory: "「新世界保留了大阪最真實的性格——粗獷、熱情且富有色彩。這是今日我們的主題。」",
       spots: [
         { time: "10:30", title: "通天閣 / 新世界", tag: "懷舊", details: "【歷史】二戰後重建的鐵塔，象徵大阪的精神復興。周圍炸串店林立，是最地道的大阪味。", access: "地下鐵惠美須町站。", mapUrl: "https://www.google.com/maps/search/?api=1&query=Tsutenkaku", price: "¥1,200" }
@@ -116,7 +116,7 @@ export default function UltimateOsakaApp() {
     },
     {
       day: 8, date: "04.18", area: "賦歸前奏：臨空城與空港時光",
-      image: "/images/day8.png",
+      image: "/images/day8.jpg",
       guideStory: "「帶著滿滿的回憶與戰利品，我們在臨空城的摩天輪前告別關西。期待下一次的櫻花再見。」",
       spots: [
         { time: "10:00", title: "臨空城 Outlet (Rinku)", tag: "購物", details: "【亮點】200家國際品牌，是離日前最後補貨的最佳處。就在大海旁邊。", access: "JR 關空快速至臨空城。", mapUrl: "https://www.google.com/maps/search/?api=1&query=Rinku+Outlet", price: "¥50,000" },
