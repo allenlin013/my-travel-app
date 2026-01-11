@@ -200,9 +200,9 @@ export default function PremiumTravelApp() {
                     <h3 className="text-xl font-normal mb-3">{spot.title}</h3>
                     <p className="text-xs font-light opacity-60 line-clamp-2">{spot.desc}</p>
                     <div className="mt-6 flex items-center gap-3 text-[9px] opacity-40 uppercase tracking-[0.1em]">
-                       <Train size={12} /> <span>{spot.access.slice(0, 15)}...</span>
+                       <Train size={12} /> <span>{spot.access?.slice(0, 15)}...</span>
                        <div className="w-1 h-1 rounded-full bg-slate-300"></div>
-                       <span>{spot.price}</span>
+                       <span>{spot.price || ""}</span>
                     </div>
                   </div>
                 ))}
