@@ -1,6 +1,15 @@
 // app/data/itinerary.ts
 
-// 定義景點介面
+export const PAYERS = ["YenLin", "CC. Fu", "Wen", "Dad", "Sister"];
+
+export interface Expense {
+  id: string;
+  item: string;
+  amount: number;
+  currency: 'JPY' | 'TWD';
+  payer: string;
+}
+
 export interface Spot {
   id: string;
   time: string;
@@ -10,14 +19,11 @@ export interface Spot {
   access: string;
   mapUrl: string;
   prevSpotName: string;
-  cost: number;
-  currency: string;
-  payer: string;      // 新增：付款人 (Me, Partner, Split)
+  expenses: Expense[]; // 改為多筆支出陣列
   food?: string;      
   shopping?: string;  
 }
 
-// 定義每日行程介面
 export interface ItineraryDay {
   day: number;
   date: string;
@@ -44,10 +50,11 @@ export const colors = {
 
 export const defaultExchangeRate = 0.215;
 
-export const initialFixedExpenses = [
-  { id: 'f1', title: '星宇航空機票 (TPE-UKB/KIX-TPE)', cost: 12000, currency: 'TWD', payer: 'Me', type: '固定' },
-  { id: 'f2', title: '大阪難波大和ROYNET飯店 (7晚)', cost: 120000, currency: 'JPY', payer: 'Split', type: '住宿' },
-  { id: 'f3', title: '日本 eSIM 網卡 (8天吃到飽)', cost: 600, currency: 'TWD', payer: 'Me', type: '雜支' }
+// 固定支出也改為 Expense 結構以便統一管理
+export const initialFixedExpenses: Expense[] = [
+  { id: 'f1', item: '星宇航空機票 (TPE-UKB/KIX-TPE)', amount: 12000, currency: 'TWD', payer: 'YenLin' },
+  { id: 'f2', item: '大阪難波大和ROYNET飯店 (7晚)', amount: 120000, currency: 'JPY', payer: 'Dad' },
+  { id: 'f3', item: '日本 eSIM 網卡 (8天吃到飽)', amount: 600, currency: 'TWD', payer: 'Sister' }
 ];
 
 export const itineraryData: ItineraryDay[] = [
@@ -64,9 +71,10 @@ export const itineraryData: ItineraryDay[] = [
         access: "起始點：神戶機場",
         mapUrl: "https://www.google.com/maps/search/?api=1&query=神戶機場",
         prevSpotName: "起始點",
-        cost: 1100,
-        currency: 'JPY',
-        payer: 'Me'
+        expenses: [
+          { id: 'e1', item: '高速船票', amount: 500, currency: 'JPY', payer: 'Dad' },
+          { id: 'e2', item: '電車費', amount: 600, currency: 'JPY', payer: 'Dad' }
+        ]
       },
       { 
         id: 'd1-s2',
@@ -77,9 +85,10 @@ export const itineraryData: ItineraryDay[] = [
         prevSpotName: "神戶機場",
         food: "【明治軒】蛋包飯",
         shopping: "@cosme、大國藥妝",
-        cost: 15000,
-        currency: 'JPY',
-        payer: 'Me'
+        expenses: [
+          { id: 'e3', item: '明治軒午餐', amount: 4000, currency: 'JPY', payer: 'Dad' },
+          { id: 'e4', item: '藥妝採購', amount: 11000, currency: 'JPY', payer: 'Sister' }
+        ]
       }
     ]
   },
@@ -97,9 +106,9 @@ export const itineraryData: ItineraryDay[] = [
         mapUrl: "https://www.google.com/maps/search/?api=1&query=清水寺",
         prevSpotName: "大阪飯店",
         food: "【藤菜美】醬油丸子",
-        cost: 500,
-        currency: 'JPY',
-        payer: 'Me'
+        expenses: [
+          { id: 'e5', item: '拜觀料', amount: 500, currency: 'JPY', payer: 'Dad' }
+        ]
       },
       { 
         id: 'd2-s2',
@@ -109,9 +118,9 @@ export const itineraryData: ItineraryDay[] = [
         mapUrl: "https://www.google.com/maps/search/?api=1&query=花見小路",
         prevSpotName: "清水寺",
         food: "【鍵善良房】葛切粉",
-        cost: 3000,
-        currency: 'JPY',
-        payer: 'Split'
+        expenses: [
+          { id: 'e6', item: '葛切粉下午茶', amount: 3000, currency: 'JPY', payer: 'YenLin' }
+        ]
       }
     ]
   },
@@ -128,9 +137,9 @@ export const itineraryData: ItineraryDay[] = [
         access: "JR 櫻島線直達。", 
         mapUrl: "https://www.google.com/maps/search/?api=1&query=日本環球影城",
         prevSpotName: "大阪飯店",
-        cost: 25000,
-        currency: 'JPY',
-        payer: 'Me' 
+        expenses: [
+          { id: 'e7', item: '門票+快速通關', amount: 25000, currency: 'JPY', payer: 'CC. Fu' }
+        ]
       }
     ]
   },
@@ -147,9 +156,10 @@ export const itineraryData: ItineraryDay[] = [
         access: "近鐵奈良線特急直達。", 
         mapUrl: "https://www.google.com/maps/search/?api=1&query=奈良公園",
         prevSpotName: "大阪飯店",
-        cost: 4500,
-        currency: 'JPY',
-        payer: 'Me' 
+        expenses: [
+          { id: 'e8', item: '鹿仙貝', amount: 500, currency: 'JPY', payer: 'Wen' },
+          { id: 'e9', item: '釜飯午餐', amount: 4000, currency: 'JPY', payer: 'Dad' }
+        ]
       }
     ]
   },
@@ -166,9 +176,10 @@ export const itineraryData: ItineraryDay[] = [
         access: "JR 環狀線至大阪城公園站。", 
         mapUrl: "https://www.google.com/maps/search/?api=1&query=大阪城天守閣",
         prevSpotName: "大阪飯店",
-        cost: 2000,
-        currency: 'JPY',
-        payer: 'Me' 
+        expenses: [
+          { id: 'e10', item: '天守閣門票', amount: 600, currency: 'JPY', payer: 'YenLin' },
+          { id: 'e11', item: '御座船', amount: 1400, currency: 'JPY', payer: 'YenLin' }
+        ]
       }
     ]
   },
@@ -185,9 +196,10 @@ export const itineraryData: ItineraryDay[] = [
         access: "大阪站步行10分鐘。", 
         mapUrl: "https://www.google.com/maps/search/?api=1&query=梅田藍天大廈",
         prevSpotName: "大阪飯店",
-        cost: 3000,
-        currency: 'JPY',
-        payer: 'Partner' 
+        expenses: [
+          { id: 'e12', item: '展望台門票', amount: 1500, currency: 'JPY', payer: 'CC. Fu' },
+          { id: 'e13', item: '瀧見小路晚餐', amount: 1500, currency: 'JPY', payer: 'CC. Fu' }
+        ]
       }
     ]
   },
@@ -204,9 +216,10 @@ export const itineraryData: ItineraryDay[] = [
         access: "地下鐵惠美須町站。", 
         mapUrl: "https://www.google.com/maps/search/?api=1&query=通天閣",
         prevSpotName: "大阪飯店",
-        cost: 1200,
-        currency: 'JPY',
-        payer: 'Me' 
+        expenses: [
+          { id: 'e14', item: '溜滑梯體驗', amount: 1000, currency: 'JPY', payer: 'Wen' },
+          { id: 'e15', item: '炸串', amount: 200, currency: 'JPY', payer: 'Dad' }
+        ]
       }
     ]
   },
@@ -223,9 +236,9 @@ export const itineraryData: ItineraryDay[] = [
         access: "JR 關空快速至臨空城。", 
         mapUrl: "https://www.google.com/maps/search/?api=1&query=臨空城Outlet",
         prevSpotName: "大阪飯店",
-        cost: 50000,
-        currency: 'JPY',
-        payer: 'Me' 
+        expenses: [
+          { id: 'e16', item: '最後採購', amount: 50000, currency: 'JPY', payer: 'Sister' }
+        ]
       },
       { 
         id: 'd8-s2',
@@ -234,9 +247,7 @@ export const itineraryData: ItineraryDay[] = [
         access: "臨空城搭電車 1 站即達。", 
         mapUrl: "https://www.google.com/maps/search/?api=1&query=關西國際機場",
         prevSpotName: "臨空城Outlet",
-        cost: 0,
-        currency: 'JPY',
-        payer: 'Me' 
+        expenses: []
       }
     ]
   }

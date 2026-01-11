@@ -1,34 +1,36 @@
 // app/components/TravelComponents.tsx
 import React, { useState } from 'react';
-import { Train, Info, Utensils, Navigation2, MapPin, X, ExternalLink, Save, Wallet } from 'lucide-react';
+import { Train, Info, Utensils, Navigation2, MapPin, X, ExternalLink, Save, Wallet, Plus, Trash2 } from 'lucide-react';
+import { PAYERS, Expense } from '../data/itinerary';
 
-// 格式化貨幣函數 (整數千分位)
-const formatNum = (amount: number) => {
-  return new Intl.NumberFormat('en-US', { 
-    maximumFractionDigits: 0 
-  }).format(amount);
-};
+const formatNum = (amount: number) => new Intl.NumberFormat('en-US').format(amount);
 
 export const SpotCard = ({ spot, onClick, colors, exchangeRate }: any) => {
-  // 計算對應的台幣 (如果是日幣則換算，如果是台幣則保留)
-  const costJPY = spot.currency === 'JPY' ? spot.cost : 0;
-  const costTWD = spot.currency === 'TWD' ? spot.cost : spot.cost * exchangeRate;
+  // 計算該景點的總支出 (TWD 和 JPY 分開統計)
+  const totalJPY = spot.expenses
+    .filter((e: Expense) => e.currency === 'JPY')
+    .reduce((sum: number, e: Expense) => sum + e.amount, 0);
+    
+  const totalTWD = spot.expenses
+    .filter((e: Expense) => e.currency === 'TWD')
+    .reduce((sum: number, e: Expense) => sum + e.amount, 0);
 
+  // 換算顯示 (為了讓卡片顯示總值，這裡顯示估計總台幣，或分開顯示)
+  // 依照需求：分開顯示
+  
   return (
     <div className="bg-white rounded-[3rem] p-8 shadow-sm border border-pink-50 transition-all active:scale-[0.98]" onClick={() => onClick(spot)}>
       <div className="flex justify-between items-center mb-4">
         <span className="text-[10px] font-mono tracking-tighter" style={{ color: colors.accent }}>{spot.time}</span>
         <div className="flex gap-2">
-           <span className="text-[9px] uppercase tracking-widest px-2 py-1 bg-slate-50 rounded-full text-slate-400">{spot.payer}</span>
            <span className="text-[9px] uppercase tracking-widest px-3 py-1 bg-pink-50 text-pink-400 rounded-full">{spot.tag}</span>
         </div>
       </div>
       <h3 className="text-lg font-normal mb-2 leading-tight">{spot.title}</h3>
       <div className="flex items-center gap-3 mt-4 text-[10px] opacity-60 uppercase tracking-[0.05em] font-mono bg-slate-50 p-3 rounded-2xl w-fit">
-        {/* 雙幣種顯示 */}
-        <span className="text-slate-700">¥{formatNum(costJPY)}</span>
+        <span className="text-slate-700">¥{formatNum(totalJPY)}</span>
         <span className="text-slate-300">|</span>
-        <span className="text-slate-500">NT${formatNum(costTWD)}</span>
+        <span className="text-slate-700">NT${formatNum(totalTWD)}</span>
       </div>
     </div>
   );
@@ -61,15 +63,6 @@ export const DailyRouteMap = ({ dayData, colors }: any) => {
         <p className="text-[10px] uppercase tracking-[0.2em] opacity-40 mb-8 px-4">
           包含 {dayData.spots.length} 個景點的接續導航
         </p>
-        <div className="space-y-3 mb-10 px-6">
-          {dayData.spots.map((spot: any, idx: number) => (
-            <div key={idx} className="flex items-center gap-3">
-              <span className="text-[8px] font-bold opacity-30 w-4">{idx + 1}</span>
-              <div className="h-[1px] flex-1 bg-pink-50"></div>
-              <span className="text-[9px] tracking-wider opacity-60">{spot.title}</span>
-            </div>
-          ))}
-        </div>
         <button 
           onClick={() => window.open(generateRouteUrl(), '_blank')}
           className="w-full py-5 bg-slate-900 text-white rounded-full text-[10px] tracking-[0.3em] uppercase active:scale-95 transition-all shadow-lg flex items-center justify-center gap-2"
@@ -81,98 +74,129 @@ export const DailyRouteMap = ({ dayData, colors }: any) => {
   );
 };
 
-// 支援金額與付款人修改的 DetailModal
-export const DetailModal = ({ spot, onClose, onNav, onUpdateSpot, colors, exchangeRate }: any) => {
-  const [isEditing, setIsEditing] = useState(false);
-  const [editCost, setEditCost] = useState(spot.cost);
-  const [editPayer, setEditPayer] = useState(spot.payer || 'Me');
+export const DetailModal = ({ spot, onClose, onNav, onUpdateExpenses, colors, exchangeRate }: any) => {
+  const [expenses, setExpenses] = useState<Expense[]>(spot.expenses);
 
-  const handleSave = () => {
-    onUpdateSpot(spot.id, { cost: Number(editCost), payer: editPayer });
-    setIsEditing(false);
+  const handleUpdateItem = (idx: number, field: keyof Expense, value: any) => {
+    const newExpenses = [...expenses];
+    newExpenses[idx] = { ...newExpenses[idx], [field]: value };
+    setExpenses(newExpenses);
   };
 
-  const costTWD = spot.currency === 'TWD' ? editCost : editCost * exchangeRate;
+  const handleAddItem = () => {
+    const newExp: Expense = {
+      id: Date.now().toString(),
+      item: '新項目',
+      amount: 0,
+      currency: 'JPY',
+      payer: PAYERS[0]
+    };
+    setExpenses([...expenses, newExp]);
+  };
+
+  const handleDeleteItem = (idx: number) => {
+    const newExpenses = expenses.filter((_, i) => i !== idx);
+    setExpenses(newExpenses);
+  };
+
+  const handleSave = () => {
+    onUpdateExpenses(spot.id, expenses);
+    onClose(); // 儲存後關閉，或者可以留著
+  };
 
   return (
     <div className="fixed inset-0 z-[100] flex items-end justify-center bg-black/10 backdrop-blur-sm">
-      <div className="bg-white w-full max-w-md rounded-t-[4.5rem] p-12 shadow-2xl animate-in slide-in-from-bottom duration-600 overflow-y-auto max-h-[94vh]">
-        <div className="flex justify-between items-start mb-12">
+      <div className="bg-white w-full max-w-md rounded-t-[4.5rem] p-10 shadow-2xl animate-in slide-in-from-bottom duration-500 overflow-y-auto max-h-[90vh]">
+        <div className="flex justify-between items-start mb-8">
           <div>
-            <span className="text-[10px] tracking-[0.4em] uppercase opacity-30 italic">Discovery / {spot.tag}</span>
-            <h2 className="text-2xl font-light mt-2 leading-tight">{spot.title}</h2>
+            <span className="text-[10px] tracking-[0.4em] uppercase opacity-30 italic">Details</span>
+            <h2 className="text-2xl font-light mt-1 leading-tight">{spot.title}</h2>
           </div>
           <button onClick={onClose} className="p-3 bg-slate-50 rounded-full text-slate-300"><X size={22} /></button>
         </div>
-        <div className="space-y-12">
-          <section>
-            <h4 className="text-[10px] uppercase tracking-[0.2em] mb-6 flex items-center gap-3" style={{ color: colors.accent }}><Info size={16}/>故事與導覽</h4>
-            <p className="text-sm font-light leading-loose text-slate-500 text-justify">{spot.details}</p>
-          </section>
 
-          <div className="grid grid-cols-2 gap-6">
-            <div className="bg-pink-50/40 p-6 rounded-[2.5rem]">
-              <h4 className="text-[9px] uppercase tracking-[0.2em] mb-4 flex items-center gap-2" style={{ color: colors.accent }}>
-                <Utensils size={14}/>味蕾建議
+        <div className="space-y-8">
+          {/* 支出細項編輯區 */}
+          <div className="bg-slate-50 p-6 rounded-[2.5rem]">
+            <div className="flex justify-between items-center mb-4">
+              <h4 className="text-[10px] uppercase tracking-[0.2em] flex items-center gap-2 text-slate-500">
+                <Wallet size={14}/> 支出細項 (可編輯)
               </h4>
-              <p className="text-xs font-light leading-relaxed text-slate-600 italic">「{spot.food || "隨意散策"}」</p>
+              <button onClick={handleAddItem} className="p-2 bg-white rounded-full text-slate-400 shadow-sm">
+                <Plus size={14}/>
+              </button>
             </div>
             
-            {/* 可編輯的預算與記帳區塊 */}
-            <div className="bg-slate-50/80 p-6 rounded-[2.5rem] relative col-span-2 sm:col-span-1">
-              <h4 className="text-[9px] uppercase tracking-[0.2em] mb-4 flex items-center gap-2" style={{ color: colors.sub }}>
-                <Wallet size={14}/> 記帳 (點擊修改)
-              </h4>
-              {isEditing ? (
-                <div className="flex flex-col gap-3">
-                  <div className="flex items-center gap-2 bg-white p-2 rounded-xl border border-pink-200">
-                     <span className="text-[10px] opacity-50">¥</span>
-                     <input 
-                       type="number" 
-                       value={editCost} 
-                       onChange={(e) => setEditCost(e.target.value)}
-                       className="w-full bg-transparent text-sm outline-none font-mono"
-                     />
-                  </div>
+            <div className="space-y-3">
+              {expenses.map((exp, idx) => (
+                <div key={exp.id} className="bg-white p-4 rounded-2xl border border-slate-100 flex flex-col gap-2">
                   <div className="flex gap-2">
-                    {['Me', 'Partner', 'Split'].map(p => (
+                    <input 
+                      value={exp.item}
+                      onChange={(e) => handleUpdateItem(idx, 'item', e.target.value)}
+                      className="w-full text-sm font-medium outline-none bg-transparent placeholder-slate-300"
+                      placeholder="項目名稱"
+                    />
+                    <button onClick={() => handleDeleteItem(idx)} className="text-red-300"><Trash2 size={14}/></button>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <select 
+                      value={exp.currency}
+                      onChange={(e) => handleUpdateItem(idx, 'currency', e.target.value as 'JPY' | 'TWD')}
+                      className="text-[10px] bg-slate-100 rounded-lg p-1 outline-none text-slate-500"
+                    >
+                      <option value="JPY">JPY</option>
+                      <option value="TWD">TWD</option>
+                    </select>
+                    <input 
+                      type="number"
+                      value={exp.amount}
+                      onChange={(e) => handleUpdateItem(idx, 'amount', Number(e.target.value))}
+                      className="w-full text-lg font-mono outline-none bg-transparent"
+                    />
+                  </div>
+                  <div className="flex overflow-x-auto gap-1 pb-1 no-scrollbar">
+                    {PAYERS.map(p => (
                       <button 
-                        key={p} 
-                        onClick={() => setEditPayer(p)}
-                        className={`text-[9px] px-3 py-1.5 rounded-full border transition-all ${editPayer === p ? 'bg-slate-800 text-white border-slate-800' : 'bg-white border-slate-200 text-slate-400'}`}
+                        key={p}
+                        onClick={() => handleUpdateItem(idx, 'payer', p)}
+                        className={`whitespace-nowrap px-2 py-1 rounded-full text-[9px] border transition-colors ${
+                          exp.payer === p 
+                            ? 'bg-slate-800 text-white border-slate-800' 
+                            : 'bg-white border-slate-100 text-slate-400'
+                        }`}
                       >
                         {p}
                       </button>
                     ))}
                   </div>
-                  <button onClick={handleSave} className="w-full py-2 bg-pink-300 text-white rounded-xl text-xs flex items-center justify-center gap-2">
-                    <Save size={12}/> 儲存變更
-                  </button>
                 </div>
-              ) : (
-                <div className="cursor-pointer group" onClick={() => setIsEditing(true)}>
-                  <div className="flex justify-between items-end mb-1">
-                     <p className="text-2xl font-light text-slate-700 group-hover:text-pink-400 transition-colors">¥{formatNum(editCost)}</p>
-                     <span className="text-[10px] uppercase bg-slate-200 px-2 py-0.5 rounded text-slate-500 mb-1">{editPayer}</span>
-                  </div>
-                  <p className="text-[10px] text-slate-400">≈ NT${formatNum(costTWD)}</p>
-                </div>
-              )}
+              ))}
+              {expenses.length === 0 && <p className="text-center text-[10px] opacity-30 py-4">暫無支出紀錄</p>}
             </div>
+            
+            <button onClick={handleSave} className="w-full mt-4 py-3 bg-pink-300 text-white rounded-xl text-xs flex items-center justify-center gap-2 shadow-md active:scale-95 transition-all">
+              <Save size={14}/> 儲存所有變更
+            </button>
           </div>
 
-          <div className="flex flex-col gap-4 pt-4">
+          <section>
+            <h4 className="text-[10px] uppercase tracking-[0.2em] mb-4 flex items-center gap-2" style={{ color: colors.accent }}><Info size={14}/>景點介紹</h4>
+            <p className="text-sm font-light leading-loose text-slate-500 text-justify">{spot.details}</p>
+          </section>
+
+          <div className="flex flex-col gap-3">
             <button 
               onClick={() => onNav('route')} 
-              className="w-full py-5 rounded-full bg-slate-900 text-white text-[10px] tracking-[0.3em] uppercase shadow-xl active:scale-95 transition-all flex items-center justify-center gap-3"
+              className="w-full py-4 rounded-full bg-slate-900 text-white text-[10px] tracking-[0.3em] uppercase shadow-xl flex items-center justify-center gap-3"
             >
-              <Navigation2 size={16} /> 啟動接續導覽 (從 {spot.prevSpotName} 出發)
+              <Navigation2 size={14} /> 啟動接續導覽
             </button>
             <button 
               onClick={() => onNav('spot')} 
-              className="w-full py-5 rounded-full border border-slate-100 text-[10px] tracking-[0.3em] uppercase active:scale-95 transition-all text-slate-400"
+              className="w-full py-4 rounded-full border border-slate-100 text-[10px] tracking-[0.3em] uppercase text-slate-400"
             >
-              查看地點定位 (基於目前位置)
+              地點定位
             </button>
           </div>
         </div>
