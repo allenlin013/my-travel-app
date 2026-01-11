@@ -138,7 +138,7 @@ export const itineraryData: ItineraryDay[] = [
         mapUrl: "https://www.google.com/maps/search/?api=1&query=日本環球影城",
         prevSpotName: "大阪飯店",
         expenses: [
-          { id: 'e7', item: '門票+快速通關', amount: 25000, currency: 'JPY', payer: 'CC. Fu' }
+          { id: 'e7', item: '門票+快速通關', amount: 25000, currency: 'JPY', payer: 'CC' }
         ]
       }
     ]
@@ -197,8 +197,8 @@ export const itineraryData: ItineraryDay[] = [
         mapUrl: "https://www.google.com/maps/search/?api=1&query=梅田藍天大廈",
         prevSpotName: "大阪飯店",
         expenses: [
-          { id: 'e12', item: '展望台門票', amount: 1500, currency: 'JPY', payer: 'CC. Fu' },
-          { id: 'e13', item: '瀧見小路晚餐', amount: 1500, currency: 'JPY', payer: 'CC. Fu' }
+          { id: 'e12', item: '展望台門票', amount: 1500, currency: 'JPY', payer: 'CC' },
+          { id: 'e13', item: '瀧見小路晚餐', amount: 1500, currency: 'JPY', payer: 'CC' }
         ]
       }
     ]
@@ -253,8 +253,26 @@ export const itineraryData: ItineraryDay[] = [
   }
 ];
 
+// 擴充後的檢查清單
 export const prepList = [
-  { title: "行政證件", items: ["護照 (效期6個月以上)", "Visit Japan Web 登錄", "機票/飯店確認單", "日幣現金 & 雙幣卡"] },
-  { title: "美學與日常", items: ["薄長袖 & 風衣 (4月溫差大)", "保濕美妝品 (日本乾燥)", "舒適步行的運動鞋", "櫻花口罩"] },
-  { title: "數位科技", items: ["日本 eSIM 卡 (4G/5G)", "行動電源", "Google Maps 收藏夾"] }
+  { 
+    title: "必備文件", 
+    items: ["護照 (效期6個月+)", "Visit Japan Web截圖", "機票 (電子/紙本)", "飯店確認單", "日幣現金", "信用卡 (雙幣/海外回饋)", "海外旅遊保險單"] 
+  },
+  { 
+    title: "個人護理", 
+    items: ["牙刷牙膏 (日本部分飯店不提供)", "洗面乳/保養品", "化妝品/防曬", "刮鬍刀", "個人常備藥品", "OK繃/休足時間", "口罩 (飛機/人多處)"] 
+  },
+  { 
+    title: "衣物穿搭", 
+    items: ["換洗衣物 (7天份)", "薄外套/風衣 (早晚溫差)", "舒適好走的鞋 (日行萬步)", "睡衣", "襪子/免洗內褲", "帽子/墨鏡"] 
+  },
+  { 
+    title: "電子設備", 
+    items: ["手機", "充電器/充電線", "行動電源 (需隨身攜帶)", "日本網卡/eSIM QR", "相機/記憶卡", "轉接頭 (日本兩孔扁插)"] 
+  },
+  { 
+    title: "雜項小物", 
+    items: ["折疊傘 (必備)", "購物袋 (環保袋)", "筆 (填寫文件)", "濕紙巾/衛生紙", "零錢包 (裝日幣硬幣)"] 
+  }
 ];

@@ -3,9 +3,10 @@ import React, { useState } from 'react';
 import { Train, Info, Utensils, Navigation2, MapPin, X, ExternalLink, Save, Wallet, Plus, Trash2 } from 'lucide-react';
 import { PAYERS, Expense } from '../data/itinerary';
 
-const formatNum = (amount: number) => new Intl.NumberFormat('en-US').format(amount);
+const formatNum = (amount: number) => new Intl.NumberFormat('en-US', { maximumFractionDigits: 0 }).format(amount);
 
 export const SpotCard = ({ spot, onClick, colors, exchangeRate }: any) => {
+  // 1. 統計該景點的所有支出
   const totalJPY = spot.expenses
     .filter((e: Expense) => e.currency === 'JPY')
     .reduce((sum: number, e: Expense) => sum + e.amount, 0);
@@ -13,6 +14,9 @@ export const SpotCard = ({ spot, onClick, colors, exchangeRate }: any) => {
   const totalTWD = spot.expenses
     .filter((e: Expense) => e.currency === 'TWD')
     .reduce((sum: number, e: Expense) => sum + e.amount, 0);
+
+  // 2. 統一換算成台幣顯示
+  const approxTWD = totalTWD + (totalJPY * exchangeRate);
 
   return (
     <div className="bg-white rounded-[3rem] p-8 shadow-sm border border-pink-50 transition-all active:scale-[0.98]" onClick={() => onClick(spot)}>
@@ -23,10 +27,18 @@ export const SpotCard = ({ spot, onClick, colors, exchangeRate }: any) => {
         </div>
       </div>
       <h3 className="text-lg font-normal mb-2 leading-tight">{spot.title}</h3>
-      <div className="flex items-center gap-3 mt-4 text-[10px] opacity-60 uppercase tracking-[0.05em] font-mono bg-slate-50 p-3 rounded-2xl w-fit">
-        <span className="text-slate-700">¥{formatNum(totalJPY)}</span>
-        <span className="text-slate-300">|</span>
-        <span className="text-slate-700">NT${formatNum(totalTWD)}</span>
+      
+      {/* 金額顯示優化: 台幣為主，日幣為輔 */}
+      <div className="flex flex-col gap-1 mt-4 bg-slate-50 p-4 rounded-2xl w-fit">
+        <div className="flex items-baseline gap-1">
+          <span className="text-xs text-slate-400">NT$</span>
+          <span className="text-xl font-bold text-slate-700 font-mono">{formatNum(approxTWD)}</span>
+        </div>
+        {totalJPY > 0 && (
+          <div className="text-[10px] text-slate-400 font-mono">
+            ( ¥{formatNum(totalJPY)} )
+          </div>
+        )}
       </div>
     </div>
   );
@@ -101,7 +113,7 @@ export const DetailModal = ({ spot, onClose, onNav, onUpdateExpenses, colors, ex
   };
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-end justify-center bg-black/10 backdrop-blur-sm">
+    <div className="fixed inset-0 z-[100] flex items-end justify-center bg-black/10 backdrop-blur-sm animate-in fade-in duration-300">
       <div className="bg-white w-full max-w-md rounded-t-[4.5rem] p-10 shadow-2xl animate-in slide-in-from-bottom duration-500 overflow-y-auto max-h-[90vh]">
         <div className="flex justify-between items-start mb-8">
           <div>
@@ -150,20 +162,26 @@ export const DetailModal = ({ spot, onClose, onNav, onUpdateExpenses, colors, ex
                       className="w-full text-lg font-mono outline-none bg-transparent"
                     />
                   </div>
-                  <div className="flex overflow-x-auto gap-1 pb-1 no-scrollbar">
-                    {PAYERS.map(p => (
-                      <button 
-                        key={p}
-                        onClick={() => handleUpdateItem(idx, 'payer', p)}
-                        className={`whitespace-nowrap px-2 py-1 rounded-full text-[9px] border transition-colors ${
-                          exp.payer === p 
-                            ? 'bg-slate-800 text-white border-slate-800' 
-                            : 'bg-white border-slate-100 text-slate-400'
-                        }`}
-                      >
-                        {p}
-                      </button>
-                    ))}
+                  {/* 付款人顯示優化: 只顯示台幣估算，日幣省略或小字 */}
+                  <div className="flex justify-between items-center mt-1">
+                    <div className="flex overflow-x-auto gap-1 pb-1 no-scrollbar max-w-[70%]">
+                      {PAYERS.map(p => (
+                        <button 
+                          key={p}
+                          onClick={() => handleUpdateItem(idx, 'payer', p)}
+                          className={`whitespace-nowrap px-2 py-1 rounded-full text-[9px] border transition-colors ${
+                            exp.payer === p 
+                              ? 'bg-slate-800 text-white border-slate-800' 
+                              : 'bg-white border-slate-100 text-slate-400'
+                          }`}
+                        >
+                          {p}
+                        </button>
+                      ))}
+                    </div>
+                    <span className="text-[10px] text-slate-400 font-mono">
+                      ≈ NT${formatNum(exp.currency === 'TWD' ? exp.amount : exp.amount * exchangeRate)}
+                    </span>
                   </div>
                 </div>
               ))}

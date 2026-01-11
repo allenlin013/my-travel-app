@@ -1,22 +1,24 @@
 "use client";
 
 import React, { useState, useEffect, useMemo } from 'react';
-import { Plane, Wallet, RefreshCw, Map as MapIcon, Book, ListChecks, Sun, Cloud, CloudRain, Save, X, Plus } from 'lucide-react';
+import { Plane, Wallet, RefreshCw, Map as MapIcon, Book, ListChecks, Sun, Cloud, CloudRain, Save, X, Plus, Check } from 'lucide-react';
 import { colors, itineraryData as initialItinerary, prepList, defaultExchangeRate, initialFixedExpenses, ItineraryDay, Expense, PAYERS } from './data/itinerary';
 import { SpotCard, DetailModal, DailyRouteMap } from './components/TravelComponents';
 
-const formatVal = (val: number) => new Intl.NumberFormat('en-US').format(val);
+const formatVal = (val: number) => new Intl.NumberFormat('en-US', { maximumFractionDigits: 0 }).format(val);
 
 export default function UltimateOsakaApp() {
   const [activeDay, setActiveDay] = useState(1);
   const [selectedSpot, setSelectedSpot] = useState<any>(null);
   const [activeTab, setActiveTab] = useState('diary');
   
-  // Wallet 分頁狀態 ('total', 'fixed', 1...8)
+  // Wallet 分頁狀態
   const [walletTab, setWalletTab] = useState<'total'|'fixed'|number>('total');
-  
   // 固定支出編輯 Modal
   const [editingFixedExpense, setEditingFixedExpense] = useState<Expense | null>(null);
+  
+  // 檢查清單狀態: { "categoryIndex-itemIndex": ["YenLin", "Dad"] } 代表誰帶了
+  const [checklistStatus, setChecklistStatus] = useState<Record<string, string[]>>({});
 
   const [itinerary, setItinerary] = useState<ItineraryDay[]>(initialItinerary);
   const [fixedExpenses, setFixedExpenses] = useState<Expense[]>(initialFixedExpenses);
@@ -36,12 +38,10 @@ export default function UltimateOsakaApp() {
 
   const currentDayData = itinerary.find(d => d.day === activeDay) || itinerary[0];
 
-  // 1. 扁平化所有支出，方便統計
+  // 計算邏輯
   const allExpensesList = useMemo(() => {
     let list: Array<Expense & { source: string, sortKey: number }> = [];
-    // 固定支出
     fixedExpenses.forEach(e => list.push({ ...e, source: '固定支出', sortKey: 0 }));
-    // 行程支出
     itinerary.forEach(day => {
       day.spots.forEach(spot => {
         spot.expenses.forEach(exp => {
@@ -52,7 +52,6 @@ export default function UltimateOsakaApp() {
     return list;
   }, [itinerary, fixedExpenses]);
 
-  // 2. 每日預算 (diary 頁面用)
   const dayBudget = useMemo(() => {
     let jpy = 0, twd = 0;
     currentDayData.spots.forEach(spot => {
@@ -63,11 +62,9 @@ export default function UltimateOsakaApp() {
     return { jpy, twd };
   }, [currentDayData]);
 
-  // 3. 總預算與付款人統計
   const stats = useMemo(() => {
     let totalJpy = 0, totalTwd = 0;
     const payerStats: Record<string, { jpy: number, twd: number }> = {};
-    
     PAYERS.forEach(p => payerStats[p] = { jpy: 0, twd: 0 });
 
     allExpensesList.forEach(e => {
@@ -82,9 +79,8 @@ export default function UltimateOsakaApp() {
     return { totalJpy, totalTwd, payerStats };
   }, [allExpensesList]);
 
-  // 4. 根據 Wallet Tab 篩選顯示的支出
   const filteredExpenses = useMemo(() => {
-    if (walletTab === 'total') return allExpensesList; // 其實 Total 頁面顯示統計卡片，列表可選
+    if (walletTab === 'total') return allExpensesList; 
     if (walletTab === 'fixed') return allExpensesList.filter(e => e.sortKey === 0);
     return allExpensesList.filter(e => e.sortKey === walletTab);
   }, [walletTab, allExpensesList]);
@@ -111,6 +107,18 @@ export default function UltimateOsakaApp() {
     window.open(url, '_blank');
   };
 
+  // 檢查清單切換
+  const toggleCheck = (itemId: string, payer: string) => {
+    setChecklistStatus(prev => {
+      const currentChecks = prev[itemId] || [];
+      if (currentChecks.includes(payer)) {
+        return { ...prev, [itemId]: currentChecks.filter(p => p !== payer) };
+      } else {
+        return { ...prev, [itemId]: [...currentChecks, payer] };
+      }
+    });
+  };
+
   const getWeatherIcon = (iconName: string) => {
     switch(iconName) {
       case 'Sunny': return <Sun size={14} className="text-yellow-500"/>;
@@ -119,6 +127,9 @@ export default function UltimateOsakaApp() {
       default: return <Sun size={14}/>;
     }
   };
+
+  // 頁面切換動畫樣式 (Tailwind utility)
+  const pageAnim = "animate-in slide-in-from-bottom-4 fade-in duration-500";
 
   return (
     <div className="min-h-screen pb-32 overflow-hidden relative" style={{ backgroundColor: colors.bg, color: colors.text }}>
@@ -149,7 +160,7 @@ export default function UltimateOsakaApp() {
         </header>
 
         {activeTab === 'diary' && (
-          <div className="animate-in fade-in duration-700">
+          <div className={pageAnim}>
             <main className="px-6">
               <div className="relative h-52 rounded-[3.5rem] overflow-hidden mb-8 shadow-2xl">
                 <img src={currentDayData.image} className="w-full h-full object-cover" alt="View" onError={(e:any)=>e.target.src="https://images.unsplash.com/photo-1493976040374-85c8e12f0c0e?auto=format&fit=crop&w=800&q=80"}/>
@@ -167,10 +178,10 @@ export default function UltimateOsakaApp() {
                       </div>
                       <div className="bg-white/20 backdrop-blur-md px-3 py-1 rounded-full border border-white/30 flex flex-col items-end">
                          <span className="text-[8px] font-light opacity-80 uppercase tracking-wider">Day Est.</span>
-                         <div className="flex gap-2 text-[10px] font-mono">
-                           <span>¥{formatVal(dayBudget.jpy)}</span>
-                           <span>NT${formatVal(dayBudget.twd)}</span>
-                         </div>
+                         {/* 這裡顯示當日總台幣估算 */}
+                         <span className="text-sm font-bold font-mono">
+                           NT${formatVal(dayBudget.twd + (dayBudget.jpy * exchangeRate))}
+                         </span>
                       </div>
                     </div>
                   </div>
@@ -186,18 +197,15 @@ export default function UltimateOsakaApp() {
         )}
 
         {activeTab === 'guide' && (
-          <div className="p-10 animate-in fade-in duration-500">
+          <div className={`p-10 ${pageAnim}`}>
             <h2 className="text-2xl font-light tracking-[0.4em] text-center mb-10 uppercase">Route</h2>
             <DailyRouteMap dayData={currentDayData} colors={colors} />
           </div>
         )}
 
-        {/* Wallet Page */}
         {activeTab === 'wallet' && (
-          <div className="p-6 animate-in fade-in duration-500 pb-32">
+          <div className={`p-6 pb-32 ${pageAnim}`}>
              <h2 className="text-2xl font-light tracking-[0.4em] text-center mb-6 uppercase">Wallet</h2>
-             
-             {/* Wallet Sub-Tabs */}
              <div className="flex gap-2 overflow-x-auto no-scrollbar mb-8 pb-2">
                {['total', 'fixed', 1, 2, 3, 4, 5, 6, 7, 8].map(t => (
                  <button key={t} onClick={() => setWalletTab(t as any)}
@@ -207,85 +215,80 @@ export default function UltimateOsakaApp() {
                ))}
              </div>
 
-             {/* Total View: 統計卡片 */}
              {walletTab === 'total' && (
                <div className="space-y-6">
-                 {/* 總金額卡片 */}
+                 {/* 總預算卡片 (台幣為主) */}
                  <div className="bg-white rounded-[3rem] p-8 shadow-xl text-center border border-pink-50 relative overflow-hidden">
-                    <span className="text-[10px] uppercase tracking-[0.2em] opacity-40">Grand Total (Est.)</span>
-                    <div className="flex justify-center gap-6 mt-4 mb-2">
-                       <div className="text-right">
-                          <div className="text-[10px] text-slate-400">JPY</div>
-                          <div className="text-2xl font-light tracking-tighter">¥{formatVal(stats.totalJpy)}</div>
-                       </div>
-                       <div className="w-[1px] bg-slate-100"></div>
-                       <div className="text-left">
-                          <div className="text-[10px] text-slate-400">TWD</div>
-                          <div className="text-2xl font-light tracking-tighter">NT${formatVal(stats.totalTwd)}</div>
-                       </div>
+                    <span className="text-[10px] uppercase tracking-[0.2em] opacity-40">Total Estimated</span>
+                    <div className="text-4xl font-light my-4 tracking-tighter text-slate-700">
+                       <span className="text-sm align-top opacity-50 mr-1">NT$</span>
+                       {formatVal(stats.totalTwd + (stats.totalJpy * exchangeRate))}
                     </div>
-                    <div className="text-[10px] text-slate-400 font-mono pt-4 border-t border-slate-50">
-                       Total ≈ NT${formatVal(stats.totalTwd + (stats.totalJpy * exchangeRate))}
+                    <div className="flex justify-center gap-4 text-[10px] text-slate-400 font-mono">
+                       <span>Pure TWD: ${formatVal(stats.totalTwd)}</span>
+                       <span>|</span>
+                       <span>Pure JPY: ¥{formatVal(stats.totalJpy)}</span>
                     </div>
                  </div>
 
-                 {/* 分帳人統計 */}
                  <div className="grid grid-cols-2 gap-4">
-                   {PAYERS.map(p => (
-                     <div key={p} className="bg-white/60 p-4 rounded-2xl border border-white">
-                       <div className="text-xs font-bold text-slate-700 mb-2">{p}</div>
-                       <div className="space-y-1">
-                         <div className="flex justify-between text-[10px] text-slate-500">
-                           <span>JPY</span><span>¥{formatVal(stats.payerStats[p].jpy)}</span>
+                   {PAYERS.map(p => {
+                     // 計算個人台幣總和
+                     const pTotal = stats.payerStats[p].twd + (stats.payerStats[p].jpy * exchangeRate);
+                     return (
+                       <div key={p} className="bg-white/60 p-4 rounded-2xl border border-white">
+                         <div className="text-xs font-bold text-slate-700 mb-2">{p}</div>
+                         <div className="text-lg font-light text-slate-600">
+                           <span className="text-[10px] mr-1">NT$</span>{formatVal(pTotal)}
                          </div>
-                         <div className="flex justify-between text-[10px] text-slate-500">
-                           <span>TWD</span><span>${formatVal(stats.payerStats[p].twd)}</span>
+                         <div className="text-[9px] text-slate-400 mt-1">
+                           ¥{formatVal(stats.payerStats[p].jpy)} + ${formatVal(stats.payerStats[p].twd)}
                          </div>
                        </div>
-                     </div>
-                   ))}
+                     );
+                   })}
                  </div>
                </div>
              )}
 
-             {/* Expense List (for Fixed or Days) */}
              {walletTab !== 'total' && (
                <div className="space-y-3">
-                 {filteredExpenses.map((item, idx) => (
-                   <div key={idx} 
-                     className="bg-white/60 p-4 rounded-[1.5rem] flex justify-between items-center border border-white active:scale-95 transition-transform"
-                     onClick={() => {
-                        // 如果是固定支出，開啟編輯 Modal
-                        if (item.sortKey === 0) setEditingFixedExpense(item);
-                        // 如果是景點支出，這只是展示，暫時不跳轉或可跳轉到景點
-                     }}
-                   >
-                      <div className="flex flex-col gap-1 w-2/3">
-                         <span className="text-[10px] opacity-40 uppercase tracking-wider">{item.source}</span>
-                         <span className="text-xs font-medium text-slate-700 truncate">{item.item}</span>
-                         <div className="flex gap-2 mt-1">
-                           <span className={`text-[9px] px-2 py-0.5 rounded-full ${item.payer === 'YenLin' ? 'bg-blue-50 text-blue-400' : 'bg-orange-50 text-orange-400'}`}>
-                             {item.payer}
-                           </span>
-                         </div>
-                      </div>
-                      <div className="text-right">
-                         <div className="text-sm font-bold text-slate-600">
-                           {item.currency === 'TWD' ? 'NT$' : '¥'} {formatVal(item.amount)}
-                         </div>
-                         {item.sortKey === 0 && <span className="text-[8px] text-slate-300">點擊修改</span>}
-                      </div>
-                   </div>
-                 ))}
+                 {filteredExpenses.map((item, idx) => {
+                   // 單項台幣估算
+                   const itemTotalTWD = item.currency === 'TWD' ? item.amount : item.amount * exchangeRate;
+                   return (
+                     <div key={idx} 
+                       className="bg-white/60 p-4 rounded-[1.5rem] flex justify-between items-center border border-white active:scale-95 transition-transform"
+                       onClick={() => { if (item.sortKey === 0) setEditingFixedExpense(item); }}
+                     >
+                        <div className="flex flex-col gap-1 w-2/3">
+                           <span className="text-[10px] opacity-40 uppercase tracking-wider">{item.source}</span>
+                           <span className="text-xs font-medium text-slate-700 truncate">{item.item}</span>
+                           <div className="flex gap-2 mt-1">
+                             <span className={`text-[9px] px-2 py-0.5 rounded-full ${item.payer === 'YenLin' ? 'bg-blue-50 text-blue-400' : 'bg-orange-50 text-orange-400'}`}>
+                               {item.payer}
+                             </span>
+                           </div>
+                        </div>
+                        <div className="text-right">
+                           <div className="text-sm font-bold text-slate-600">
+                             NT$ {formatVal(itemTotalTWD)}
+                           </div>
+                           <div className="text-[9px] text-slate-400">
+                             {item.currency === 'JPY' ? `¥${formatVal(item.amount)}` : `(TWD)`}
+                           </div>
+                        </div>
+                     </div>
+                   );
+                 })}
                  {filteredExpenses.length === 0 && <div className="text-center opacity-30 text-xs py-10">尚無支出</div>}
                </div>
              )}
           </div>
         )}
 
-        {/* Currency Tab */}
         {activeTab === 'currency' && (
-          <div className="p-10 animate-in fade-in duration-500">
+          <div className={`p-10 ${pageAnim}`}>
             <h2 className="text-2xl font-light tracking-[0.4em] text-center mb-10 uppercase">Exchange</h2>
             <div className="bg-white rounded-[4rem] p-12 shadow-xl border border-pink-50">
                <div className="flex flex-col gap-10">
@@ -312,12 +315,50 @@ export default function UltimateOsakaApp() {
           </div>
         )}
 
+        {/* 擴充後的檢查清單頁面 */}
         {activeTab === 'prep' && (
-          <div className="p-10 text-center"><h2 className="text-2xl font-light mb-8">Checklist</h2><div className="text-left space-y-4">{prepList.map((l,i)=><div key={i} className="bg-white p-6 rounded-3xl"><h3 className="text-xs font-bold mb-2">{l.title}</h3><p className="text-xs opacity-60">{l.items.join(', ')}</p></div>)}</div></div>
+          <div className={`p-6 pb-32 ${pageAnim}`}>
+            <h2 className="text-2xl font-light tracking-[0.4em] text-center mb-8 uppercase">Checklist</h2>
+            <div className="space-y-6">
+              {prepList.map((sec, secIdx) => (
+                <div key={secIdx} className="bg-white p-6 rounded-[2.5rem] shadow-sm">
+                  <h3 className="text-xs font-bold text-slate-400 mb-4 uppercase tracking-widest pl-2 border-l-2 border-pink-200">{sec.title}</h3>
+                  <div className="space-y-4">
+                    {sec.items.map((item, itemIdx) => {
+                      const itemId = `${secIdx}-${itemIdx}`;
+                      return (
+                        <div key={itemId} className="pb-4 border-b border-slate-50 last:border-0 last:pb-0">
+                          <p className="text-sm text-slate-700 mb-3 ml-1">{item}</p>
+                          <div className="flex flex-wrap gap-2">
+                            {PAYERS.map(p => {
+                              const isChecked = checklistStatus[itemId]?.includes(p);
+                              const initial = p.charAt(0);
+                              return (
+                                <button
+                                  key={p}
+                                  onClick={() => toggleCheck(itemId, p)}
+                                  className={`w-8 h-8 rounded-full text-[10px] font-bold flex items-center justify-center transition-all ${
+                                    isChecked 
+                                      ? 'bg-slate-800 text-white shadow-md scale-105' 
+                                      : 'bg-slate-50 text-slate-300'
+                                  }`}
+                                >
+                                  {isChecked ? <Check size={12}/> : initial}
+                                </button>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
         )}
       </div>
 
-      {/* Spot Detail Modal */}
       {selectedSpot && (
         <DetailModal 
           spot={selectedSpot} 
@@ -329,10 +370,10 @@ export default function UltimateOsakaApp() {
         />
       )}
 
-      {/* Fixed Expense Edit Modal */}
+      {/* 固定支出編輯 Modal */}
       {editingFixedExpense && (
         <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/40 backdrop-blur-md p-6">
-          <div className="bg-white w-full max-w-sm rounded-[2rem] p-8 shadow-2xl">
+          <div className="bg-white w-full max-w-sm rounded-[2rem] p-8 shadow-2xl animate-in fade-in zoom-in-95 duration-300">
              <h3 className="text-lg font-light mb-4">編輯固定支出</h3>
              <input className="w-full bg-slate-50 p-3 rounded-xl mb-3 text-sm" value={editingFixedExpense.item} onChange={e=>setEditingFixedExpense({...editingFixedExpense, item: e.target.value})} />
              <div className="flex gap-2 mb-3">
