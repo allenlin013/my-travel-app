@@ -1,9 +1,9 @@
 "use client";
 
 import React, { useState, useEffect, useMemo } from 'react';
-import { Plane, Wallet, RefreshCw, Map as MapIcon, Book, ListChecks, Sun, Cloud, CloudRain, Save, X, Plus, Check } from 'lucide-react';
-import { colors, itineraryData as initialItinerary, prepList, defaultExchangeRate, initialFixedExpenses, ItineraryDay, Expense, PAYERS } from './data/itinerary';
-import { SpotCard, DetailModal, DailyRouteMap } from './components/TravelComponents';
+import { Plane, Wallet, RefreshCw, Map as MapIcon, Book, ListChecks, Sun, Cloud, CloudRain, Check, PlusCircle } from 'lucide-react';
+import { colors, itineraryData as initialItinerary, prepList, defaultExchangeRate, initialFixedExpenses, ItineraryDay, Expense, PAYERS, Spot } from './data/itinerary';
+import { SpotCard, DetailModal, DailyRouteMap, AddSpotModal, ExpenseChart } from './components/TravelComponents';
 
 const formatVal = (val: number) => new Intl.NumberFormat('en-US', { maximumFractionDigits: 0 }).format(val);
 
@@ -12,13 +12,10 @@ export default function UltimateOsakaApp() {
   const [selectedSpot, setSelectedSpot] = useState<any>(null);
   const [activeTab, setActiveTab] = useState('diary');
   
-  // Wallet 分頁狀態
   const [walletTab, setWalletTab] = useState<'total'|'fixed'|number>('total');
-  // 固定支出編輯 Modal
   const [editingFixedExpense, setEditingFixedExpense] = useState<Expense | null>(null);
-  
-  // 檢查清單狀態: { "categoryIndex-itemIndex": ["YenLin", "Dad"] } 代表誰帶了
   const [checklistStatus, setChecklistStatus] = useState<Record<string, string[]>>({});
+  const [isAddSpotOpen, setIsAddSpotOpen] = useState(false);
 
   const [itinerary, setItinerary] = useState<ItineraryDay[]>(initialItinerary);
   const [fixedExpenses, setFixedExpenses] = useState<Expense[]>(initialFixedExpenses);
@@ -38,7 +35,6 @@ export default function UltimateOsakaApp() {
 
   const currentDayData = itinerary.find(d => d.day === activeDay) || itinerary[0];
 
-  // 計算邏輯
   const allExpensesList = useMemo(() => {
     let list: Array<Expense & { source: string, sortKey: number }> = [];
     fixedExpenses.forEach(e => list.push({ ...e, source: '固定支出', sortKey: 0 }));
@@ -85,7 +81,6 @@ export default function UltimateOsakaApp() {
     return allExpensesList.filter(e => e.sortKey === walletTab);
   }, [walletTab, allExpensesList]);
 
-  // Handlers
   const handleUpdateExpenses = (spotId: string, newExpenses: Expense[]) => {
     setItinerary(prev => prev.map(day => ({
       ...day,
@@ -107,7 +102,6 @@ export default function UltimateOsakaApp() {
     window.open(url, '_blank');
   };
 
-  // 檢查清單切換
   const toggleCheck = (itemId: string, payer: string) => {
     setChecklistStatus(prev => {
       const currentChecks = prev[itemId] || [];
@@ -119,6 +113,17 @@ export default function UltimateOsakaApp() {
     });
   };
 
+  const handleAddSpot = (newSpot: Spot) => {
+    setItinerary(prev => prev.map(day => {
+      if (day.day === activeDay) {
+        const updatedSpots = [...day.spots, newSpot].sort((a, b) => a.time.localeCompare(b.time));
+        return { ...day, spots: updatedSpots };
+      }
+      return day;
+    }));
+    setIsAddSpotOpen(false);
+  };
+
   const getWeatherIcon = (iconName: string) => {
     switch(iconName) {
       case 'Sunny': return <Sun size={14} className="text-yellow-500"/>;
@@ -128,8 +133,7 @@ export default function UltimateOsakaApp() {
     }
   };
 
-  // 頁面切換動畫樣式 (Tailwind utility)
-  const pageAnim = "animate-in slide-in-from-bottom-4 fade-in duration-500";
+  const pageAnim = "animate-in slide-in-from-bottom-10 fade-in zoom-in-95 duration-700 ease-out";
 
   return (
     <div className="min-h-screen pb-32 overflow-hidden relative" style={{ backgroundColor: colors.bg, color: colors.text }}>
@@ -146,7 +150,12 @@ export default function UltimateOsakaApp() {
           <div className="flex justify-between items-center mb-6">
             <Plane size={18} style={{ color: colors.accent }} />
             <h1 className="text-xl font-light tracking-[0.4em] uppercase">Kyoto Osaka</h1>
-            <div className="text-[10px] font-mono opacity-40">1 JPY ≈ {exchangeRate.toFixed(3)} TWD</div>
+            <div className="flex items-center gap-4">
+              <div className="text-[10px] font-mono opacity-40">1 JPY ≈ {exchangeRate.toFixed(3)} TWD</div>
+              <button onClick={() => setIsAddSpotOpen(true)} className="text-pink-400 hover:scale-110 transition-transform">
+                <PlusCircle size={24} />
+              </button>
+            </div>
           </div>
           <div className="flex gap-3 overflow-x-auto no-scrollbar pb-2">
             {itinerary.map(d => (
@@ -159,8 +168,9 @@ export default function UltimateOsakaApp() {
           </div>
         </header>
 
-        {activeTab === 'diary' && (
-          <div className={pageAnim}>
+        <div key={activeTab} className={pageAnim}>
+          
+          {activeTab === 'diary' && (
             <main className="px-6">
               <div className="relative h-52 rounded-[3.5rem] overflow-hidden mb-8 shadow-2xl">
                 <img src={currentDayData.image} className="w-full h-full object-cover" alt="View" onError={(e:any)=>e.target.src="https://images.unsplash.com/photo-1493976040374-85c8e12f0c0e?auto=format&fit=crop&w=800&q=80"}/>
@@ -178,7 +188,6 @@ export default function UltimateOsakaApp() {
                       </div>
                       <div className="bg-white/20 backdrop-blur-md px-3 py-1 rounded-full border border-white/30 flex flex-col items-end">
                          <span className="text-[8px] font-light opacity-80 uppercase tracking-wider">Day Est.</span>
-                         {/* 這裡顯示當日總台幣估算 */}
                          <span className="text-sm font-bold font-mono">
                            NT${formatVal(dayBudget.twd + (dayBudget.jpy * exchangeRate))}
                          </span>
@@ -191,172 +200,164 @@ export default function UltimateOsakaApp() {
                 {currentDayData.spots.map((spot, i) => (
                   <SpotCard key={i} spot={spot} colors={colors} onClick={setSelectedSpot} exchangeRate={exchangeRate} />
                 ))}
+                <div 
+                  className="border-2 border-dashed border-pink-200 rounded-[3rem] p-6 text-center opacity-50 cursor-pointer hover:opacity-100 hover:bg-pink-50 transition-all"
+                  onClick={() => setIsAddSpotOpen(true)}
+                >
+                  <p className="text-xs text-pink-300 tracking-widest uppercase">+ Add New Spot</p>
+                </div>
               </div>
             </main>
-          </div>
-        )}
+          )}
 
-        {activeTab === 'guide' && (
-          <div className={`p-10 ${pageAnim}`}>
-            <h2 className="text-2xl font-light tracking-[0.4em] text-center mb-10 uppercase">Route</h2>
-            <DailyRouteMap dayData={currentDayData} colors={colors} />
-          </div>
-        )}
+          {activeTab === 'guide' && (
+            <div className="p-10">
+              <h2 className="text-2xl font-light tracking-[0.4em] text-center mb-10 uppercase">Route</h2>
+              <DailyRouteMap dayData={currentDayData} colors={colors} />
+            </div>
+          )}
 
-        {activeTab === 'wallet' && (
-          <div className={`p-6 pb-32 ${pageAnim}`}>
-             <h2 className="text-2xl font-light tracking-[0.4em] text-center mb-6 uppercase">Wallet</h2>
-             <div className="flex gap-2 overflow-x-auto no-scrollbar mb-8 pb-2">
-               {['total', 'fixed', 1, 2, 3, 4, 5, 6, 7, 8].map(t => (
-                 <button key={t} onClick={() => setWalletTab(t as any)}
-                   className={`px-4 py-2 rounded-full text-[10px] uppercase tracking-wider whitespace-nowrap transition-all border ${walletTab === t ? 'bg-slate-800 text-white border-slate-800' : 'bg-white text-slate-400 border-slate-200'}`}>
-                   {t === 'total' ? '總覽' : t === 'fixed' ? '固定' : `D${t}`}
-                 </button>
-               ))}
-             </div>
+          {activeTab === 'wallet' && (
+            <div className="p-6 pb-32">
+               <h2 className="text-2xl font-light tracking-[0.4em] text-center mb-6 uppercase">Wallet</h2>
+               <div className="flex gap-2 overflow-x-auto no-scrollbar mb-8 pb-2">
+                 {['total', 'fixed', 1, 2, 3, 4, 5, 6, 7, 8].map(t => (
+                   <button key={t} onClick={() => setWalletTab(t as any)}
+                     className={`px-4 py-2 rounded-full text-[10px] uppercase tracking-wider whitespace-nowrap transition-all border ${walletTab === t ? 'bg-slate-800 text-white border-slate-800' : 'bg-white text-slate-400 border-slate-200'}`}>
+                     {t === 'total' ? '總覽' : t === 'fixed' ? '固定' : `D${t}`}
+                   </button>
+                 ))}
+               </div>
 
-             {walletTab === 'total' && (
-               <div className="space-y-6">
-                 {/* 總預算卡片 (台幣為主) */}
-                 <div className="bg-white rounded-[3rem] p-8 shadow-xl text-center border border-pink-50 relative overflow-hidden">
-                    <span className="text-[10px] uppercase tracking-[0.2em] opacity-40">Total Estimated</span>
-                    <div className="text-4xl font-light my-4 tracking-tighter text-slate-700">
-                       <span className="text-sm align-top opacity-50 mr-1">NT$</span>
-                       {formatVal(stats.totalTwd + (stats.totalJpy * exchangeRate))}
-                    </div>
-                    <div className="flex justify-center gap-4 text-[10px] text-slate-400 font-mono">
-                       <span>Pure TWD: ${formatVal(stats.totalTwd)}</span>
-                       <span>|</span>
-                       <span>Pure JPY: ¥{formatVal(stats.totalJpy)}</span>
-                    </div>
+               {walletTab === 'total' && (
+                 <div className="space-y-6">
+                   {/* 圓環圖表 */}
+                   <ExpenseChart payerStats={stats.payerStats} exchangeRate={exchangeRate} />
+
+                   <div className="grid grid-cols-2 gap-4">
+                     {PAYERS.map(p => {
+                       const pTotal = stats.payerStats[p].twd + (stats.payerStats[p].jpy * exchangeRate);
+                       return (
+                         <div key={p} className="bg-white/60 p-4 rounded-2xl border border-white">
+                           <div className="text-xs font-bold text-slate-700 mb-2">{p}</div>
+                           <div className="text-lg font-light text-slate-600">
+                             <span className="text-[10px] mr-1">NT$</span>{formatVal(pTotal)}
+                           </div>
+                           <div className="text-[9px] text-slate-400 mt-1">
+                             ¥{formatVal(stats.payerStats[p].jpy)} + ${formatVal(stats.payerStats[p].twd)}
+                           </div>
+                         </div>
+                       );
+                     })}
+                   </div>
                  </div>
+               )}
 
-                 <div className="grid grid-cols-2 gap-4">
-                   {PAYERS.map(p => {
-                     // 計算個人台幣總和
-                     const pTotal = stats.payerStats[p].twd + (stats.payerStats[p].jpy * exchangeRate);
+               {walletTab !== 'total' && (
+                 <div className="space-y-3">
+                   {filteredExpenses.map((item, idx) => {
+                     const itemTotalTWD = item.currency === 'TWD' ? item.amount : item.amount * exchangeRate;
                      return (
-                       <div key={p} className="bg-white/60 p-4 rounded-2xl border border-white">
-                         <div className="text-xs font-bold text-slate-700 mb-2">{p}</div>
-                         <div className="text-lg font-light text-slate-600">
-                           <span className="text-[10px] mr-1">NT$</span>{formatVal(pTotal)}
-                         </div>
-                         <div className="text-[9px] text-slate-400 mt-1">
-                           ¥{formatVal(stats.payerStats[p].jpy)} + ${formatVal(stats.payerStats[p].twd)}
-                         </div>
+                       <div key={idx} 
+                         className="bg-white/60 p-4 rounded-[1.5rem] flex justify-between items-center border border-white active:scale-95 transition-transform"
+                         onClick={() => { if (item.sortKey === 0) setEditingFixedExpense(item); }}
+                       >
+                          <div className="flex flex-col gap-1 w-2/3">
+                             <span className="text-[10px] opacity-40 uppercase tracking-wider">{item.source}</span>
+                             <span className="text-xs font-medium text-slate-700 truncate">{item.item}</span>
+                             <div className="flex gap-2 mt-1">
+                               <span className={`text-[9px] px-2 py-0.5 rounded-full ${item.payer === 'YenLin' ? 'bg-blue-50 text-blue-400' : 'bg-orange-50 text-orange-400'}`}>
+                                 {item.payer}
+                               </span>
+                             </div>
+                          </div>
+                          <div className="text-right">
+                             <div className="text-sm font-bold text-slate-600">
+                               NT$ {formatVal(itemTotalTWD)}
+                             </div>
+                             <div className="text-[9px] text-slate-400">
+                               {item.currency === 'JPY' ? `¥${formatVal(item.amount)}` : `(TWD)`}
+                             </div>
+                          </div>
                        </div>
                      );
                    })}
+                   {filteredExpenses.length === 0 && <div className="text-center opacity-30 text-xs py-10">尚無支出</div>}
                  </div>
-               </div>
-             )}
-
-             {walletTab !== 'total' && (
-               <div className="space-y-3">
-                 {filteredExpenses.map((item, idx) => {
-                   // 單項台幣估算
-                   const itemTotalTWD = item.currency === 'TWD' ? item.amount : item.amount * exchangeRate;
-                   return (
-                     <div key={idx} 
-                       className="bg-white/60 p-4 rounded-[1.5rem] flex justify-between items-center border border-white active:scale-95 transition-transform"
-                       onClick={() => { if (item.sortKey === 0) setEditingFixedExpense(item); }}
-                     >
-                        <div className="flex flex-col gap-1 w-2/3">
-                           <span className="text-[10px] opacity-40 uppercase tracking-wider">{item.source}</span>
-                           <span className="text-xs font-medium text-slate-700 truncate">{item.item}</span>
-                           <div className="flex gap-2 mt-1">
-                             <span className={`text-[9px] px-2 py-0.5 rounded-full ${item.payer === 'YenLin' ? 'bg-blue-50 text-blue-400' : 'bg-orange-50 text-orange-400'}`}>
-                               {item.payer}
-                             </span>
-                           </div>
-                        </div>
-                        <div className="text-right">
-                           <div className="text-sm font-bold text-slate-600">
-                             NT$ {formatVal(itemTotalTWD)}
-                           </div>
-                           <div className="text-[9px] text-slate-400">
-                             {item.currency === 'JPY' ? `¥${formatVal(item.amount)}` : `(TWD)`}
-                           </div>
-                        </div>
-                     </div>
-                   );
-                 })}
-                 {filteredExpenses.length === 0 && <div className="text-center opacity-30 text-xs py-10">尚無支出</div>}
-               </div>
-             )}
-          </div>
-        )}
-
-        {activeTab === 'currency' && (
-          <div className={`p-10 ${pageAnim}`}>
-            <h2 className="text-2xl font-light tracking-[0.4em] text-center mb-10 uppercase">Exchange</h2>
-            <div className="bg-white rounded-[4rem] p-12 shadow-xl border border-pink-50">
-               <div className="flex flex-col gap-10">
-                  <div className="group">
-                    <label className="text-[10px] uppercase tracking-[0.2em] opacity-30 block mb-4 ml-4">Japanese Yen (JPY)</label>
-                    <div className="flex items-center bg-slate-50 p-6 rounded-[2rem] border border-transparent group-focus-within:border-pink-200 transition-all">
-                      <span className="text-xl font-light mr-4 opacity-40">¥</span>
-                      <input type="number" value={jpyInput} onChange={(e) => setJpyInput(e.target.value)} className="bg-transparent text-2xl font-light outline-none w-full" />
-                    </div>
-                  </div>
-                  <div className="flex justify-center"><RefreshCw size={20} className="text-pink-300 rotate-90" /></div>
-                  <div className="group">
-                    <label className="text-[10px] uppercase tracking-[0.2em] opacity-30 block mb-4 ml-4">Taiwan Dollar (TWD)</label>
-                    <div className="flex items-center bg-pink-50/30 p-6 rounded-[2rem] border border-pink-100">
-                      <span className="text-xl font-light mr-4 opacity-40">$</span>
-                      <div className="text-2xl font-light">{formatVal(Number(jpyInput) * exchangeRate)}</div>
-                    </div>
-                  </div>
-               </div>
-               <p className="text-[10px] text-center mt-12 opacity-30 tracking-widest font-light italic">
-                 Rate: 1 JPY ≈ {exchangeRate.toFixed(4)} TWD
-               </p>
+               )}
             </div>
-          </div>
-        )}
+          )}
 
-        {/* 擴充後的檢查清單頁面 */}
-        {activeTab === 'prep' && (
-          <div className={`p-6 pb-32 ${pageAnim}`}>
-            <h2 className="text-2xl font-light tracking-[0.4em] text-center mb-8 uppercase">Checklist</h2>
-            <div className="space-y-6">
-              {prepList.map((sec, secIdx) => (
-                <div key={secIdx} className="bg-white p-6 rounded-[2.5rem] shadow-sm">
-                  <h3 className="text-xs font-bold text-slate-400 mb-4 uppercase tracking-widest pl-2 border-l-2 border-pink-200">{sec.title}</h3>
-                  <div className="space-y-4">
-                    {sec.items.map((item, itemIdx) => {
-                      const itemId = `${secIdx}-${itemIdx}`;
-                      return (
-                        <div key={itemId} className="pb-4 border-b border-slate-50 last:border-0 last:pb-0">
-                          <p className="text-sm text-slate-700 mb-3 ml-1">{item}</p>
-                          <div className="flex flex-wrap gap-2">
-                            {PAYERS.map(p => {
-                              const isChecked = checklistStatus[itemId]?.includes(p);
-                              const initial = p.charAt(0);
-                              return (
-                                <button
-                                  key={p}
-                                  onClick={() => toggleCheck(itemId, p)}
-                                  className={`w-8 h-8 rounded-full text-[10px] font-bold flex items-center justify-center transition-all ${
-                                    isChecked 
-                                      ? 'bg-slate-800 text-white shadow-md scale-105' 
-                                      : 'bg-slate-50 text-slate-300'
-                                  }`}
-                                >
-                                  {isChecked ? <Check size={12}/> : initial}
-                                </button>
-                              );
-                            })}
+          {activeTab === 'currency' && (
+            <div className="p-10">
+              <h2 className="text-2xl font-light tracking-[0.4em] text-center mb-10 uppercase">Exchange</h2>
+              <div className="bg-white rounded-[4rem] p-12 shadow-xl border border-pink-50">
+                 <div className="flex flex-col gap-10">
+                    <div className="group">
+                      <label className="text-[10px] uppercase tracking-[0.2em] opacity-30 block mb-4 ml-4">Japanese Yen (JPY)</label>
+                      <div className="flex items-center bg-slate-50 p-6 rounded-[2rem] border border-transparent group-focus-within:border-pink-200 transition-all">
+                        <span className="text-xl font-light mr-4 opacity-40">¥</span>
+                        <input type="number" value={jpyInput} onChange={(e) => setJpyInput(e.target.value)} className="bg-transparent text-2xl font-light outline-none w-full" />
+                      </div>
+                    </div>
+                    <div className="flex justify-center"><RefreshCw size={20} className="text-pink-300 rotate-90" /></div>
+                    <div className="group">
+                      <label className="text-[10px] uppercase tracking-[0.2em] opacity-30 block mb-4 ml-4">Taiwan Dollar (TWD)</label>
+                      <div className="flex items-center bg-pink-50/30 p-6 rounded-[2rem] border border-pink-100">
+                        <span className="text-xl font-light mr-4 opacity-40">$</span>
+                        <div className="text-2xl font-light">{formatVal(Number(jpyInput) * exchangeRate)}</div>
+                      </div>
+                    </div>
+                 </div>
+                 <p className="text-[10px] text-center mt-12 opacity-30 tracking-widest font-light italic">
+                   Rate: 1 JPY ≈ {exchangeRate.toFixed(4)} TWD
+                 </p>
+              </div>
+            </div>
+          )}
+
+          {activeTab === 'prep' && (
+            <div className="p-6 pb-32">
+              <h2 className="text-2xl font-light tracking-[0.4em] text-center mb-8 uppercase">Checklist</h2>
+              <div className="space-y-6">
+                {prepList.map((sec, secIdx) => (
+                  <div key={secIdx} className="bg-white p-6 rounded-[2.5rem] shadow-sm">
+                    <h3 className="text-xs font-bold text-slate-400 mb-4 uppercase tracking-widest pl-2 border-l-2 border-pink-200">{sec.title}</h3>
+                    <div className="space-y-4">
+                      {sec.items.map((item, itemIdx) => {
+                        const itemId = `${secIdx}-${itemIdx}`;
+                        return (
+                          <div key={itemId} className="pb-4 border-b border-slate-50 last:border-0 last:pb-0">
+                            <p className="text-sm text-slate-700 mb-3 ml-1">{item}</p>
+                            <div className="flex flex-wrap gap-2">
+                              {PAYERS.map(p => {
+                                const isChecked = checklistStatus[itemId]?.includes(p);
+                                const initial = p.charAt(0);
+                                return (
+                                  <button
+                                    key={p}
+                                    onClick={() => toggleCheck(itemId, p)}
+                                    className={`w-8 h-8 rounded-full text-[10px] font-bold flex items-center justify-center transition-all ${
+                                      isChecked 
+                                        ? 'bg-slate-800 text-white shadow-md scale-105' 
+                                        : 'bg-slate-50 text-slate-300'
+                                    }`}
+                                  >
+                                    {isChecked ? <Check size={12}/> : initial}
+                                  </button>
+                                );
+                              })}
+                            </div>
                           </div>
-                        </div>
-                      );
-                    })}
+                        );
+                      })}
+                    </div>
                   </div>
-                </div>
-              ))}
+                ))}
+              </div>
             </div>
-          </div>
-        )}
+          )}
+        </div>
       </div>
 
       {selectedSpot && (
@@ -370,7 +371,10 @@ export default function UltimateOsakaApp() {
         />
       )}
 
-      {/* 固定支出編輯 Modal */}
+      {isAddSpotOpen && (
+        <AddSpotModal onClose={() => setIsAddSpotOpen(false)} onSave={handleAddSpot} />
+      )}
+
       {editingFixedExpense && (
         <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/40 backdrop-blur-md p-6">
           <div className="bg-white w-full max-w-sm rounded-[2rem] p-8 shadow-2xl animate-in fade-in zoom-in-95 duration-300">

@@ -1,12 +1,12 @@
 // app/components/TravelComponents.tsx
-import React, { useState } from 'react';
-import { Train, Info, Utensils, Navigation2, MapPin, X, ExternalLink, Save, Wallet, Plus, Trash2 } from 'lucide-react';
-import { PAYERS, Expense } from '../data/itinerary';
+import React, { useState, useMemo } from 'react';
+import { Train, Info, Utensils, Navigation2, MapPin, X, ExternalLink, Save, Wallet, Plus, Trash2, Map, Tag, Clock, DollarSign, PieChart } from 'lucide-react';
+import { PAYERS, Expense, Spot } from '../data/itinerary';
 
 const formatNum = (amount: number) => new Intl.NumberFormat('en-US', { maximumFractionDigits: 0 }).format(amount);
 
+// --- 1. 景點卡片 ---
 export const SpotCard = ({ spot, onClick, colors, exchangeRate }: any) => {
-  // 1. 統計該景點的所有支出
   const totalJPY = spot.expenses
     .filter((e: Expense) => e.currency === 'JPY')
     .reduce((sum: number, e: Expense) => sum + e.amount, 0);
@@ -15,7 +15,6 @@ export const SpotCard = ({ spot, onClick, colors, exchangeRate }: any) => {
     .filter((e: Expense) => e.currency === 'TWD')
     .reduce((sum: number, e: Expense) => sum + e.amount, 0);
 
-  // 2. 統一換算成台幣顯示
   const approxTWD = totalTWD + (totalJPY * exchangeRate);
 
   return (
@@ -28,7 +27,6 @@ export const SpotCard = ({ spot, onClick, colors, exchangeRate }: any) => {
       </div>
       <h3 className="text-lg font-normal mb-2 leading-tight">{spot.title}</h3>
       
-      {/* 金額顯示優化: 台幣為主，日幣為輔 */}
       <div className="flex flex-col gap-1 mt-4 bg-slate-50 p-4 rounded-2xl w-fit">
         <div className="flex items-baseline gap-1">
           <span className="text-xs text-slate-400">NT$</span>
@@ -44,6 +42,7 @@ export const SpotCard = ({ spot, onClick, colors, exchangeRate }: any) => {
   );
 };
 
+// --- 2. 每日路線圖 ---
 export const DailyRouteMap = ({ dayData, colors }: any) => {
   if (!dayData || !dayData.spots || dayData.spots.length === 0) return null;
 
@@ -82,6 +81,7 @@ export const DailyRouteMap = ({ dayData, colors }: any) => {
   );
 };
 
+// --- 3. 詳情彈窗 (含記帳編輯) ---
 export const DetailModal = ({ spot, onClose, onNav, onUpdateExpenses, colors, exchangeRate }: any) => {
   const [expenses, setExpenses] = useState<Expense[]>(spot.expenses);
 
@@ -162,7 +162,6 @@ export const DetailModal = ({ spot, onClose, onNav, onUpdateExpenses, colors, ex
                       className="w-full text-lg font-mono outline-none bg-transparent"
                     />
                   </div>
-                  {/* 付款人顯示優化: 只顯示台幣估算，日幣省略或小字 */}
                   <div className="flex justify-between items-center mt-1">
                     <div className="flex overflow-x-auto gap-1 pb-1 no-scrollbar max-w-[70%]">
                       {PAYERS.map(p => (
@@ -212,6 +211,210 @@ export const DetailModal = ({ spot, onClose, onNav, onUpdateExpenses, colors, ex
               地點定位
             </button>
           </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// --- 4. 新增行程 Modal ---
+export const AddSpotModal = ({ onClose, onSave }: any) => {
+  const [formData, setFormData] = useState({
+    time: '',
+    title: '',
+    tag: 'Shopping',
+    details: '',
+    cost: 0,
+    currency: 'JPY',
+    payer: PAYERS[0]
+  });
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!formData.title) return;
+
+    const mapUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(formData.title)}`;
+    
+    const newSpot: Spot = {
+      id: Date.now().toString(),
+      time: formData.time || "12:00",
+      title: formData.title,
+      tag: formData.tag,
+      details: formData.details || "手動新增的行程",
+      access: "自訂行程",
+      mapUrl: mapUrl,
+      prevSpotName: "上一個景點",
+      expenses: formData.cost > 0 ? [{
+        id: Date.now().toString() + '_exp',
+        item: '預估費用',
+        amount: Number(formData.cost),
+        currency: formData.currency as 'JPY' | 'TWD',
+        payer: formData.payer
+      }] : []
+    };
+
+    onSave(newSpot);
+  };
+
+  return (
+    <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/40 backdrop-blur-md p-6 animate-in fade-in zoom-in-95 duration-300">
+      <div className="bg-white w-full max-w-sm rounded-[2.5rem] p-8 shadow-2xl">
+        <div className="flex justify-between items-center mb-6">
+          <h3 className="text-xl font-light tracking-wide">新增行程</h3>
+          <button onClick={onClose} className="p-2 bg-slate-50 rounded-full text-slate-400"><X size={20}/></button>
+        </div>
+        
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div className="flex gap-3">
+            <div className="flex-1 space-y-1">
+              <label className="text-[10px] uppercase tracking-wider text-slate-400 pl-2"><Clock size={10} className="inline mr-1"/>時間</label>
+              <input 
+                className="w-full bg-slate-50 p-4 rounded-2xl outline-none text-sm" 
+                placeholder="10:00" 
+                value={formData.time}
+                onChange={e => setFormData({...formData, time: e.target.value})}
+              />
+            </div>
+            <div className="flex-1 space-y-1">
+              <label className="text-[10px] uppercase tracking-wider text-slate-400 pl-2"><Tag size={10} className="inline mr-1"/>標籤</label>
+              <select 
+                className="w-full bg-slate-50 p-4 rounded-2xl outline-none text-sm appearance-none"
+                value={formData.tag}
+                onChange={e => setFormData({...formData, tag: e.target.value})}
+              >
+                <option value="Shopping">Shopping</option>
+                <option value="Food">Food</option>
+                <option value="Sightseeing">Sightseeing</option>
+                <option value="Relax">Relax</option>
+              </select>
+            </div>
+          </div>
+
+          <div className="space-y-1">
+            <label className="text-[10px] uppercase tracking-wider text-slate-400 pl-2"><Map size={10} className="inline mr-1"/>地點名稱</label>
+            <input 
+              className="w-full bg-slate-50 p-4 rounded-2xl outline-none text-sm font-medium" 
+              placeholder="例如: 一蘭拉麵 道頓堀店" 
+              value={formData.title}
+              onChange={e => setFormData({...formData, title: e.target.value})}
+              required
+            />
+          </div>
+
+          <div className="space-y-1">
+            <label className="text-[10px] uppercase tracking-wider text-slate-400 pl-2"><Info size={10} className="inline mr-1"/>備註</label>
+            <textarea 
+              className="w-full bg-slate-50 p-4 rounded-2xl outline-none text-sm h-24 resize-none" 
+              placeholder="輸入備註或介紹..." 
+              value={formData.details}
+              onChange={e => setFormData({...formData, details: e.target.value})}
+            />
+          </div>
+
+          <div className="bg-slate-50 p-4 rounded-2xl space-y-3">
+            <label className="text-[10px] uppercase tracking-wider text-slate-400"><DollarSign size={10} className="inline mr-1"/>預估花費</label>
+            <div className="flex gap-2">
+              <input 
+                type="number" 
+                className="flex-1 bg-white p-3 rounded-xl text-sm outline-none" 
+                placeholder="0"
+                value={formData.cost || ''}
+                onChange={e => setFormData({...formData, cost: Number(e.target.value)})}
+              />
+              <select 
+                className="w-20 bg-white p-3 rounded-xl text-sm outline-none"
+                value={formData.currency}
+                onChange={e => setFormData({...formData, currency: e.target.value})}
+              >
+                <option value="JPY">JPY</option>
+                <option value="TWD">TWD</option>
+              </select>
+            </div>
+            <div className="flex overflow-x-auto gap-2 no-scrollbar">
+              {PAYERS.map(p => (
+                <button 
+                  key={p} 
+                  type="button"
+                  onClick={() => setFormData({...formData, payer: p})}
+                  className={`text-[10px] px-3 py-1.5 rounded-full border transition-colors ${formData.payer === p ? 'bg-slate-800 text-white border-slate-800' : 'bg-white border-slate-200'}`}
+                >
+                  {p}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <button type="submit" className="w-full py-4 bg-slate-900 text-white rounded-2xl text-xs tracking-widest uppercase shadow-lg active:scale-95 transition-all">
+            確認新增
+          </button>
+        </form>
+      </div>
+    </div>
+  );
+};
+
+// --- 5. 圓環統計圖表 (New!) ---
+export const ExpenseChart = ({ payerStats, exchangeRate }: any) => {
+  // 配色對應表
+  const colors: Record<string, string> = {
+    "YenLin": "#F472B6", // Pink-400
+    "CC": "#60A5FA",     // Blue-400
+    "Fu": "#34D399",     // Emerald-400
+    "Wen": "#FBBF24",    // Amber-400
+    "Dad": "#A78BFA",    // Violet-400
+    "Sister": "#FB923C"  // Orange-400
+  };
+
+  // 1. 計算每個人轉換成台幣的總金額
+  const data = PAYERS.map(p => {
+    const stats = payerStats[p] || { jpy: 0, twd: 0 };
+    const totalTWD = stats.twd + (stats.jpy * exchangeRate);
+    return { name: p, value: totalTWD, color: colors[p] || "#CBD5E1" };
+  }).filter(d => d.value > 0); // 只顯示有支出的
+
+  const totalValue = data.reduce((acc, cur) => acc + cur.value, 0);
+
+  // 2. 生成 Conic Gradient 字串
+  const gradientString = useMemo(() => {
+    if (totalValue === 0) return "conic-gradient(#f1f5f9 0% 100%)";
+    
+    let currentDeg = 0;
+    const segments = data.map(d => {
+      const start = currentDeg;
+      const deg = (d.value / totalValue) * 360;
+      currentDeg += deg;
+      return `${d.color} ${start}deg ${currentDeg}deg`;
+    });
+    return `conic-gradient(${segments.join(', ')})`;
+  }, [data, totalValue]);
+
+  if (totalValue === 0) return null;
+
+  return (
+    <div className="bg-white rounded-[3rem] p-8 shadow-xl border border-pink-50 mb-6">
+      <h3 className="text-[10px] uppercase tracking-[0.2em] opacity-40 text-center mb-6">Expense Distribution</h3>
+      
+      <div className="flex items-center justify-center gap-8">
+        {/* 圖表本體 */}
+        <div className="relative w-40 h-40 rounded-full shadow-inner" style={{ background: gradientString }}>
+          {/* 中間挖空成甜甜圈 */}
+          <div className="absolute inset-4 bg-white rounded-full flex items-center justify-center flex-col">
+             <span className="text-[10px] text-slate-400">Total</span>
+             <span className="text-xs font-bold text-slate-700">NT${formatNum(totalValue)}</span>
+          </div>
+        </div>
+
+        {/* 圖例 */}
+        <div className="flex flex-col gap-2">
+          {data.map(d => (
+            <div key={d.name} className="flex items-center gap-2">
+              <div className="w-2 h-2 rounded-full" style={{ backgroundColor: d.color }}></div>
+              <div className="flex flex-col">
+                <span className="text-[10px] font-bold text-slate-600">{d.name}</span>
+                <span className="text-[9px] text-slate-400">{((d.value / totalValue) * 100).toFixed(1)}%</span>
+              </div>
+            </div>
+          ))}
         </div>
       </div>
     </div>
