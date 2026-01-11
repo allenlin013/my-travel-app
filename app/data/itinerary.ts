@@ -1,5 +1,36 @@
 // app/data/itinerary.ts
 
+// 定義景點介面
+export interface Spot {
+  id: string;
+  time: string;
+  title: string;
+  tag: string;
+  details: string;
+  access: string;
+  mapUrl: string;
+  prevSpotName: string;
+  cost: number;
+  currency: string;
+  food?: string;      // 設為可選
+  shopping?: string;  // 設為可選
+}
+
+// 定義每日行程介面
+export interface ItineraryDay {
+  day: number;
+  date: string;
+  area: string;
+  image: string;
+  weather: {
+    icon: string;
+    temp: string;
+    desc: string;
+  };
+  guideStory: string;
+  spots: Spot[];
+}
+
 export const colors = {
   bg: "#F7F3F2",        
   card: "#FFFFFF",
@@ -10,17 +41,16 @@ export const colors = {
   currencyBg: "#E8E2E0"
 };
 
-// 初始預設匯率 (當 API 失敗時使用)
 export const defaultExchangeRate = 0.215;
 
-// 固定支出項目 (機票、網卡等) - 支援 TWD 或 JPY
 export const initialFixedExpenses = [
   { id: 'f1', title: '星宇航空機票 (TPE-UKB/KIX-TPE)', cost: 12000, currency: 'TWD', type: '固定' },
   { id: 'f2', title: '大阪難波大和ROYNET飯店 (7晚)', cost: 120000, currency: 'JPY', type: '住宿' },
   { id: 'f3', title: '日本 eSIM 網卡 (8天吃到飽)', cost: 600, currency: 'TWD', type: '雜支' }
 ];
 
-export const itineraryData = [
+// 明確指定型別為 ItineraryDay[]
+export const itineraryData: ItineraryDay[] = [
   {
     day: 1, date: "04.11", area: "海之啟程：神戶灣與大阪燈火",
     image: "/images/day1.jpg",
@@ -34,7 +64,7 @@ export const itineraryData = [
         access: "起始點：神戶機場",
         mapUrl: "https://www.google.com/maps/search/?api=1&query=神戶機場",
         prevSpotName: "起始點",
-        cost: 1100, // JPY
+        cost: 1100,
         currency: 'JPY'
       },
       { 

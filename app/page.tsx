@@ -2,7 +2,8 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
 import { Plane, Calendar, Wallet, RefreshCw, Map as MapIcon, Book, ListChecks, Sun, Cloud, CloudRain } from 'lucide-react';
-import { colors, itineraryData as initialItinerary, prepList, defaultExchangeRate, initialFixedExpenses } from './data/itinerary';
+// 引入 ItineraryDay 型別
+import { colors, itineraryData as initialItinerary, prepList, defaultExchangeRate, initialFixedExpenses, ItineraryDay } from './data/itinerary';
 import { SpotCard, DetailModal, DailyRouteMap } from './components/TravelComponents';
 
 export default function UltimateOsakaApp() {
@@ -10,8 +11,8 @@ export default function UltimateOsakaApp() {
   const [selectedSpot, setSelectedSpot] = useState<any>(null);
   const [activeTab, setActiveTab] = useState('diary');
   
-  // 狀態管理
-  const [itinerary, setItinerary] = useState(initialItinerary);
+  // 狀態管理：使用泛型 <ItineraryDay[]> 明確指定型別
+  const [itinerary, setItinerary] = useState<ItineraryDay[]>(initialItinerary);
   const [fixedExpenses, setFixedExpenses] = useState(initialFixedExpenses);
   const [exchangeRate, setExchangeRate] = useState(defaultExchangeRate);
   const [jpyInput, setJpyInput] = useState<string>("1000");
@@ -71,7 +72,7 @@ export default function UltimateOsakaApp() {
     }, 0);
   }, [budgetList, exchangeRate]);
 
-  // 更新景點費用函數 (傳遞給 Modal)
+  // 更新景點費用函數
   const handleUpdateSpotCost = (spotId: string, newCost: number) => {
     setItinerary(prev => prev.map(day => ({
       ...day,
