@@ -1,6 +1,6 @@
 // app/data/itinerary.ts
 
-export const PAYERS = ["YenLin", "CC. Fu", "Wen", "Dad", "Sister"];
+export const PAYERS = ["YenLin", "CC", "Fu", "Wen", "Dad", "Sister"];
 
 export interface Expense {
   id: string;
@@ -19,7 +19,7 @@ export interface Spot {
   access: string;
   mapUrl: string;
   prevSpotName: string;
-  expenses: Expense[]; // 改為多筆支出陣列
+  expenses: Expense[];
   food?: string;      
   shopping?: string;  
 }
@@ -50,7 +50,7 @@ export const colors = {
 
 export const defaultExchangeRate = 0.215;
 
-// 固定支出也改為 Expense 結構以便統一管理
+// 固定支出 (機票/住宿)
 export const initialFixedExpenses: Expense[] = [
   { id: 'f1', item: '星宇航空機票 (TPE-UKB/KIX-TPE)', amount: 12000, currency: 'TWD', payer: 'YenLin' },
   { id: 'f2', item: '大阪難波大和ROYNET飯店 (7晚)', amount: 120000, currency: 'JPY', payer: 'Dad' },
@@ -67,7 +67,7 @@ export const itineraryData: ItineraryDay[] = [
       { 
         id: 'd1-s1',
         time: "10:30", title: "神戶機場 (UKB)", tag: "交通",
-        details: "【歷史背景】這座填海而成的機場體現了日本精密的工程美學。2006年啟用至今，是神戶人的驕傲。3樓的展望台可看見明石海峽大橋。",
+        details: "【歷史背景】這座填海而成的機場體現了日本精密的工程美學。3樓的展望台可看見明石海峽大橋。",
         access: "起始點：神戶機場",
         mapUrl: "https://www.google.com/maps/search/?api=1&query=神戶機場",
         prevSpotName: "起始點",

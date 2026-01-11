@@ -6,7 +6,6 @@ import { PAYERS, Expense } from '../data/itinerary';
 const formatNum = (amount: number) => new Intl.NumberFormat('en-US').format(amount);
 
 export const SpotCard = ({ spot, onClick, colors, exchangeRate }: any) => {
-  // 計算該景點的總支出 (TWD 和 JPY 分開統計)
   const totalJPY = spot.expenses
     .filter((e: Expense) => e.currency === 'JPY')
     .reduce((sum: number, e: Expense) => sum + e.amount, 0);
@@ -15,9 +14,6 @@ export const SpotCard = ({ spot, onClick, colors, exchangeRate }: any) => {
     .filter((e: Expense) => e.currency === 'TWD')
     .reduce((sum: number, e: Expense) => sum + e.amount, 0);
 
-  // 換算顯示 (為了讓卡片顯示總值，這裡顯示估計總台幣，或分開顯示)
-  // 依照需求：分開顯示
-  
   return (
     <div className="bg-white rounded-[3rem] p-8 shadow-sm border border-pink-50 transition-all active:scale-[0.98]" onClick={() => onClick(spot)}>
       <div className="flex justify-between items-center mb-4">
@@ -101,7 +97,7 @@ export const DetailModal = ({ spot, onClose, onNav, onUpdateExpenses, colors, ex
 
   const handleSave = () => {
     onUpdateExpenses(spot.id, expenses);
-    onClose(); // 儲存後關閉，或者可以留著
+    onClose();
   };
 
   return (
@@ -116,7 +112,6 @@ export const DetailModal = ({ spot, onClose, onNav, onUpdateExpenses, colors, ex
         </div>
 
         <div className="space-y-8">
-          {/* 支出細項編輯區 */}
           <div className="bg-slate-50 p-6 rounded-[2.5rem]">
             <div className="flex justify-between items-center mb-4">
               <h4 className="text-[10px] uppercase tracking-[0.2em] flex items-center gap-2 text-slate-500">

@@ -1,15 +1,23 @@
 "use client";
 
 import React, { useState, useEffect, useMemo } from 'react';
-import { Plane, Calendar, Wallet, RefreshCw, Map as MapIcon, Book, ListChecks, Sun, Cloud, CloudRain } from 'lucide-react';
-import { colors, itineraryData as initialItinerary, prepList, defaultExchangeRate, initialFixedExpenses, ItineraryDay, Expense } from './data/itinerary';
+import { Plane, Wallet, RefreshCw, Map as MapIcon, Book, ListChecks, Sun, Cloud, CloudRain, Save, X, Plus } from 'lucide-react';
+import { colors, itineraryData as initialItinerary, prepList, defaultExchangeRate, initialFixedExpenses, ItineraryDay, Expense, PAYERS } from './data/itinerary';
 import { SpotCard, DetailModal, DailyRouteMap } from './components/TravelComponents';
+
+const formatVal = (val: number) => new Intl.NumberFormat('en-US').format(val);
 
 export default function UltimateOsakaApp() {
   const [activeDay, setActiveDay] = useState(1);
   const [selectedSpot, setSelectedSpot] = useState<any>(null);
   const [activeTab, setActiveTab] = useState('diary');
   
+  // Wallet 分頁狀態 ('total', 'fixed', 1...8)
+  const [walletTab, setWalletTab] = useState<'total'|'fixed'|number>('total');
+  
+  // 固定支出編輯 Modal
+  const [editingFixedExpense, setEditingFixedExpense] = useState<Expense | null>(null);
+
   const [itinerary, setItinerary] = useState<ItineraryDay[]>(initialItinerary);
   const [fixedExpenses, setFixedExpenses] = useState<Expense[]>(initialFixedExpenses);
   const [exchangeRate, setExchangeRate] = useState(defaultExchangeRate);
@@ -20,7 +28,7 @@ export default function UltimateOsakaApp() {
       try {
         const res = await fetch('https://api.exchangerate-api.com/v4/latest/JPY');
         const data = await res.json();
-        if (data && data.rates && data.rates.TWD) setExchangeRate(data.rates.TWD);
+        if (data?.rates?.TWD) setExchangeRate(data.rates.TWD);
       } catch (e) { console.error("Rate fetch failed"); }
     };
     fetchRate();
@@ -28,55 +36,71 @@ export default function UltimateOsakaApp() {
 
   const currentDayData = itinerary.find(d => d.day === activeDay) || itinerary[0];
 
-  // 1. 計算單日預算 (TWD 與 JPY 分開)
-  const dayBudget = useMemo(() => {
-    let jpy = 0, twd = 0;
-    currentDayData.spots.forEach(spot => {
-      spot.expenses.forEach(exp => {
-        if (exp.currency === 'JPY') jpy += exp.amount;
-        else twd += exp.amount;
-      });
-    });
-    return { jpy, twd };
-  }, [currentDayData]);
-
-  // 2. 產生詳細支出清單 (包含固定支出 + 所有行程細項)
+  // 1. 扁平化所有支出，方便統計
   const allExpensesList = useMemo(() => {
-    let list: Array<Expense & { source: string }> = [];
-    
+    let list: Array<Expense & { source: string, sortKey: number }> = [];
     // 固定支出
-    fixedExpenses.forEach(e => list.push({ ...e, source: '固定' }));
-    
+    fixedExpenses.forEach(e => list.push({ ...e, source: '固定支出', sortKey: 0 }));
     // 行程支出
     itinerary.forEach(day => {
       day.spots.forEach(spot => {
         spot.expenses.forEach(exp => {
-          list.push({ ...exp, source: `Day ${day.day} - ${spot.title}` });
+          list.push({ ...exp, source: `D${day.day} - ${spot.title}`, sortKey: day.day });
         });
       });
     });
     return list;
   }, [itinerary, fixedExpenses]);
 
-  // 3. 計算總預算 (TWD 與 JPY 分開)
-  const totalBudget = useMemo(() => {
+  // 2. 每日預算 (diary 頁面用)
+  const dayBudget = useMemo(() => {
     let jpy = 0, twd = 0;
-    allExpensesList.forEach(e => {
-      if (e.currency === 'JPY') jpy += e.amount;
-      else twd += e.amount;
+    currentDayData.spots.forEach(spot => {
+      spot.expenses.forEach(exp => {
+        if (exp.currency === 'JPY') jpy += exp.amount; else twd += exp.amount;
+      });
     });
     return { jpy, twd };
+  }, [currentDayData]);
+
+  // 3. 總預算與付款人統計
+  const stats = useMemo(() => {
+    let totalJpy = 0, totalTwd = 0;
+    const payerStats: Record<string, { jpy: number, twd: number }> = {};
+    
+    PAYERS.forEach(p => payerStats[p] = { jpy: 0, twd: 0 });
+
+    allExpensesList.forEach(e => {
+      if (e.currency === 'JPY') {
+        totalJpy += e.amount;
+        if(payerStats[e.payer]) payerStats[e.payer].jpy += e.amount;
+      } else {
+        totalTwd += e.amount;
+        if(payerStats[e.payer]) payerStats[e.payer].twd += e.amount;
+      }
+    });
+    return { totalJpy, totalTwd, payerStats };
   }, [allExpensesList]);
 
+  // 4. 根據 Wallet Tab 篩選顯示的支出
+  const filteredExpenses = useMemo(() => {
+    if (walletTab === 'total') return allExpensesList; // 其實 Total 頁面顯示統計卡片，列表可選
+    if (walletTab === 'fixed') return allExpensesList.filter(e => e.sortKey === 0);
+    return allExpensesList.filter(e => e.sortKey === walletTab);
+  }, [walletTab, allExpensesList]);
+
+  // Handlers
   const handleUpdateExpenses = (spotId: string, newExpenses: Expense[]) => {
     setItinerary(prev => prev.map(day => ({
       ...day,
-      spots: day.spots.map(spot => 
-        spot.id === spotId ? { ...spot, expenses: newExpenses } : spot
-      )
+      spots: day.spots.map(spot => spot.id === spotId ? { ...spot, expenses: newExpenses } : spot)
     })));
-    // 如果當前 Modal 開著，也更新它以避免狀態不同步
     setSelectedSpot((prev: any) => prev ? { ...prev, expenses: newExpenses } : null);
+  };
+
+  const handleUpdateFixed = (expense: Expense) => {
+    setFixedExpenses(prev => prev.map(e => e.id === expense.id ? expense : e));
+    setEditingFixedExpense(null);
   };
 
   const handleNavigation = (mode: 'route' | 'spot') => {
@@ -87,7 +111,14 @@ export default function UltimateOsakaApp() {
     window.open(url, '_blank');
   };
 
-  const formatVal = (val: number) => new Intl.NumberFormat('en-US').format(val);
+  const getWeatherIcon = (iconName: string) => {
+    switch(iconName) {
+      case 'Sunny': return <Sun size={14} className="text-yellow-500"/>;
+      case 'Cloudy': return <Cloud size={14} className="text-slate-400"/>;
+      case 'Rain': return <CloudRain size={14} className="text-blue-400"/>;
+      default: return <Sun size={14}/>;
+    }
+  };
 
   return (
     <div className="min-h-screen pb-32 overflow-hidden relative" style={{ backgroundColor: colors.bg, color: colors.text }}>
@@ -129,29 +160,22 @@ export default function UltimateOsakaApp() {
                       <span className="text-[10px] tracking-[0.2em] uppercase">{currentDayData.date}</span>
                       <h2 className="text-2xl font-light tracking-widest">{currentDayData.area}</h2>
                     </div>
-                    {/* 天氣與當日預算 */}
                     <div className="flex flex-col items-end gap-2">
                       <div className="flex items-center gap-1 bg-black/20 p-2 rounded-xl backdrop-blur-md">
-                         <Sun size={14} className="text-yellow-400"/>
+                         {getWeatherIcon(currentDayData.weather.icon)}
                          <span className="text-xs font-bold">{currentDayData.weather.temp}</span>
                       </div>
                       <div className="bg-white/20 backdrop-blur-md px-3 py-1 rounded-full border border-white/30 flex flex-col items-end">
                          <span className="text-[8px] font-light opacity-80 uppercase tracking-wider">Day Est.</span>
-                         <span className="text-[10px] font-mono">¥{formatVal(dayBudget.jpy)}</span>
-                         <span className="text-[10px] font-mono">NT${formatVal(dayBudget.twd)}</span>
+                         <div className="flex gap-2 text-[10px] font-mono">
+                           <span>¥{formatVal(dayBudget.jpy)}</span>
+                           <span>NT${formatVal(dayBudget.twd)}</span>
+                         </div>
                       </div>
                     </div>
                   </div>
                 </div>
               </div>
-
-              <div className="bg-white/40 p-6 rounded-[2.5rem] mb-10 border border-white/50 backdrop-blur-sm">
-                <p className="text-[11px] leading-loose font-light italic opacity-70">
-                  <span className="font-bold mr-2 text-[10px]" style={{ color: colors.accent }}>GUIDE :</span>
-                  {currentDayData.guideStory}
-                </p>
-              </div>
-
               <div className="space-y-8">
                 {currentDayData.spots.map((spot, i) => (
                   <SpotCard key={i} spot={spot} colors={colors} onClick={setSelectedSpot} exchangeRate={exchangeRate} />
@@ -161,7 +185,6 @@ export default function UltimateOsakaApp() {
           </div>
         )}
 
-        {/* Guide Tab */}
         {activeTab === 'guide' && (
           <div className="p-10 animate-in fade-in duration-500">
             <h2 className="text-2xl font-light tracking-[0.4em] text-center mb-10 uppercase">Route</h2>
@@ -169,63 +192,132 @@ export default function UltimateOsakaApp() {
           </div>
         )}
 
-        {/* Wallet Tab - 詳細清單 */}
+        {/* Wallet Page */}
         {activeTab === 'wallet' && (
-          <div className="p-6 animate-in fade-in duration-500">
-             <h2 className="text-2xl font-light tracking-[0.4em] text-center mb-8 uppercase">Expenses</h2>
+          <div className="p-6 animate-in fade-in duration-500 pb-32">
+             <h2 className="text-2xl font-light tracking-[0.4em] text-center mb-6 uppercase">Wallet</h2>
              
-             {/* 總預算卡片 */}
-             <div className="bg-white rounded-[3rem] p-8 shadow-xl text-center border border-pink-50 mb-8">
-                <span className="text-[10px] uppercase tracking-[0.2em] opacity-40">Total Estimated</span>
-                <div className="flex justify-center gap-6 mt-4">
-                   <div className="text-right">
-                      <div className="text-[10px] text-slate-400">JPY</div>
-                      <div className="text-2xl font-light tracking-tighter">¥{formatVal(totalBudget.jpy)}</div>
-                   </div>
-                   <div className="w-[1px] bg-slate-100"></div>
-                   <div className="text-left">
-                      <div className="text-[10px] text-slate-400">TWD</div>
-                      <div className="text-2xl font-light tracking-tighter">NT${formatVal(totalBudget.twd)}</div>
-                   </div>
-                </div>
-                <div className="mt-4 pt-4 border-t border-slate-50 text-[10px] text-slate-400 font-mono">
-                   Total ≈ NT${formatVal(totalBudget.twd + (totalBudget.jpy * exchangeRate))}
-                </div>
-             </div>
-
-             {/* 細項清單 */}
-             <div className="space-y-3 pb-24">
-               {allExpensesList.map((item, idx) => (
-                 <div key={idx} className="bg-white/60 p-4 rounded-[1.5rem] flex justify-between items-center border border-white">
-                    <div className="flex flex-col gap-1 w-2/3">
-                       <span className="text-[10px] opacity-40 uppercase tracking-wider">{item.source}</span>
-                       <span className="text-xs font-medium text-slate-700 truncate">{item.item}</span>
-                       <div className="flex gap-2 mt-1">
-                         <span className={`text-[9px] px-2 py-0.5 rounded-full ${item.payer === 'Me' ? 'bg-blue-50 text-blue-400' : 'bg-orange-50 text-orange-400'}`}>
-                           {item.payer}
-                         </span>
-                       </div>
-                    </div>
-                    <div className="text-right">
-                       <div className="text-sm font-bold text-slate-600">
-                         {item.currency === 'TWD' ? 'NT$' : '¥'} {formatVal(item.amount)}
-                       </div>
-                    </div>
-                 </div>
+             {/* Wallet Sub-Tabs */}
+             <div className="flex gap-2 overflow-x-auto no-scrollbar mb-8 pb-2">
+               {['total', 'fixed', 1, 2, 3, 4, 5, 6, 7, 8].map(t => (
+                 <button key={t} onClick={() => setWalletTab(t as any)}
+                   className={`px-4 py-2 rounded-full text-[10px] uppercase tracking-wider whitespace-nowrap transition-all border ${walletTab === t ? 'bg-slate-800 text-white border-slate-800' : 'bg-white text-slate-400 border-slate-200'}`}>
+                   {t === 'total' ? '總覽' : t === 'fixed' ? '固定' : `D${t}`}
+                 </button>
                ))}
              </div>
+
+             {/* Total View: 統計卡片 */}
+             {walletTab === 'total' && (
+               <div className="space-y-6">
+                 {/* 總金額卡片 */}
+                 <div className="bg-white rounded-[3rem] p-8 shadow-xl text-center border border-pink-50 relative overflow-hidden">
+                    <span className="text-[10px] uppercase tracking-[0.2em] opacity-40">Grand Total (Est.)</span>
+                    <div className="flex justify-center gap-6 mt-4 mb-2">
+                       <div className="text-right">
+                          <div className="text-[10px] text-slate-400">JPY</div>
+                          <div className="text-2xl font-light tracking-tighter">¥{formatVal(stats.totalJpy)}</div>
+                       </div>
+                       <div className="w-[1px] bg-slate-100"></div>
+                       <div className="text-left">
+                          <div className="text-[10px] text-slate-400">TWD</div>
+                          <div className="text-2xl font-light tracking-tighter">NT${formatVal(stats.totalTwd)}</div>
+                       </div>
+                    </div>
+                    <div className="text-[10px] text-slate-400 font-mono pt-4 border-t border-slate-50">
+                       Total ≈ NT${formatVal(stats.totalTwd + (stats.totalJpy * exchangeRate))}
+                    </div>
+                 </div>
+
+                 {/* 分帳人統計 */}
+                 <div className="grid grid-cols-2 gap-4">
+                   {PAYERS.map(p => (
+                     <div key={p} className="bg-white/60 p-4 rounded-2xl border border-white">
+                       <div className="text-xs font-bold text-slate-700 mb-2">{p}</div>
+                       <div className="space-y-1">
+                         <div className="flex justify-between text-[10px] text-slate-500">
+                           <span>JPY</span><span>¥{formatVal(stats.payerStats[p].jpy)}</span>
+                         </div>
+                         <div className="flex justify-between text-[10px] text-slate-500">
+                           <span>TWD</span><span>${formatVal(stats.payerStats[p].twd)}</span>
+                         </div>
+                       </div>
+                     </div>
+                   ))}
+                 </div>
+               </div>
+             )}
+
+             {/* Expense List (for Fixed or Days) */}
+             {walletTab !== 'total' && (
+               <div className="space-y-3">
+                 {filteredExpenses.map((item, idx) => (
+                   <div key={idx} 
+                     className="bg-white/60 p-4 rounded-[1.5rem] flex justify-between items-center border border-white active:scale-95 transition-transform"
+                     onClick={() => {
+                        // 如果是固定支出，開啟編輯 Modal
+                        if (item.sortKey === 0) setEditingFixedExpense(item);
+                        // 如果是景點支出，這只是展示，暫時不跳轉或可跳轉到景點
+                     }}
+                   >
+                      <div className="flex flex-col gap-1 w-2/3">
+                         <span className="text-[10px] opacity-40 uppercase tracking-wider">{item.source}</span>
+                         <span className="text-xs font-medium text-slate-700 truncate">{item.item}</span>
+                         <div className="flex gap-2 mt-1">
+                           <span className={`text-[9px] px-2 py-0.5 rounded-full ${item.payer === 'YenLin' ? 'bg-blue-50 text-blue-400' : 'bg-orange-50 text-orange-400'}`}>
+                             {item.payer}
+                           </span>
+                         </div>
+                      </div>
+                      <div className="text-right">
+                         <div className="text-sm font-bold text-slate-600">
+                           {item.currency === 'TWD' ? 'NT$' : '¥'} {formatVal(item.amount)}
+                         </div>
+                         {item.sortKey === 0 && <span className="text-[8px] text-slate-300">點擊修改</span>}
+                      </div>
+                   </div>
+                 ))}
+                 {filteredExpenses.length === 0 && <div className="text-center opacity-30 text-xs py-10">尚無支出</div>}
+               </div>
+             )}
           </div>
         )}
 
-        {/* Currency & Prep Tabs (Simplified for length) */}
+        {/* Currency Tab */}
         {activeTab === 'currency' && (
-          <div className="p-10 text-center"><h2 className="text-2xl font-light mb-8">Exchange</h2><p className="opacity-50">1 JPY = {exchangeRate} TWD</p></div>
+          <div className="p-10 animate-in fade-in duration-500">
+            <h2 className="text-2xl font-light tracking-[0.4em] text-center mb-10 uppercase">Exchange</h2>
+            <div className="bg-white rounded-[4rem] p-12 shadow-xl border border-pink-50">
+               <div className="flex flex-col gap-10">
+                  <div className="group">
+                    <label className="text-[10px] uppercase tracking-[0.2em] opacity-30 block mb-4 ml-4">Japanese Yen (JPY)</label>
+                    <div className="flex items-center bg-slate-50 p-6 rounded-[2rem] border border-transparent group-focus-within:border-pink-200 transition-all">
+                      <span className="text-xl font-light mr-4 opacity-40">¥</span>
+                      <input type="number" value={jpyInput} onChange={(e) => setJpyInput(e.target.value)} className="bg-transparent text-2xl font-light outline-none w-full" />
+                    </div>
+                  </div>
+                  <div className="flex justify-center"><RefreshCw size={20} className="text-pink-300 rotate-90" /></div>
+                  <div className="group">
+                    <label className="text-[10px] uppercase tracking-[0.2em] opacity-30 block mb-4 ml-4">Taiwan Dollar (TWD)</label>
+                    <div className="flex items-center bg-pink-50/30 p-6 rounded-[2rem] border border-pink-100">
+                      <span className="text-xl font-light mr-4 opacity-40">$</span>
+                      <div className="text-2xl font-light">{formatVal(Number(jpyInput) * exchangeRate)}</div>
+                    </div>
+                  </div>
+               </div>
+               <p className="text-[10px] text-center mt-12 opacity-30 tracking-widest font-light italic">
+                 Rate: 1 JPY ≈ {exchangeRate.toFixed(4)} TWD
+               </p>
+            </div>
+          </div>
         )}
+
         {activeTab === 'prep' && (
           <div className="p-10 text-center"><h2 className="text-2xl font-light mb-8">Checklist</h2><div className="text-left space-y-4">{prepList.map((l,i)=><div key={i} className="bg-white p-6 rounded-3xl"><h3 className="text-xs font-bold mb-2">{l.title}</h3><p className="text-xs opacity-60">{l.items.join(', ')}</p></div>)}</div></div>
         )}
       </div>
 
+      {/* Spot Detail Modal */}
       {selectedSpot && (
         <DetailModal 
           spot={selectedSpot} 
@@ -235,6 +327,35 @@ export default function UltimateOsakaApp() {
           onUpdateExpenses={handleUpdateExpenses}
           exchangeRate={exchangeRate}
         />
+      )}
+
+      {/* Fixed Expense Edit Modal */}
+      {editingFixedExpense && (
+        <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/40 backdrop-blur-md p-6">
+          <div className="bg-white w-full max-w-sm rounded-[2rem] p-8 shadow-2xl">
+             <h3 className="text-lg font-light mb-4">編輯固定支出</h3>
+             <input className="w-full bg-slate-50 p-3 rounded-xl mb-3 text-sm" value={editingFixedExpense.item} onChange={e=>setEditingFixedExpense({...editingFixedExpense, item: e.target.value})} />
+             <div className="flex gap-2 mb-3">
+               <input type="number" className="w-full bg-slate-50 p-3 rounded-xl text-sm" value={editingFixedExpense.amount} onChange={e=>setEditingFixedExpense({...editingFixedExpense, amount: Number(e.target.value)})} />
+               <select className="bg-slate-50 p-3 rounded-xl text-sm" value={editingFixedExpense.currency} onChange={e=>setEditingFixedExpense({...editingFixedExpense, currency: e.target.value as any})}>
+                 <option value="TWD">TWD</option>
+                 <option value="JPY">JPY</option>
+               </select>
+             </div>
+             <div className="flex flex-wrap gap-2 mb-6">
+                {PAYERS.map(p => (
+                  <button key={p} onClick={()=>setEditingFixedExpense({...editingFixedExpense, payer: p})}
+                    className={`text-xs px-3 py-1 rounded-full border ${editingFixedExpense.payer === p ? 'bg-slate-800 text-white' : 'bg-white'}`}>
+                    {p}
+                  </button>
+                ))}
+             </div>
+             <div className="flex gap-3">
+               <button onClick={()=>setEditingFixedExpense(null)} className="flex-1 py-3 border rounded-xl text-xs">取消</button>
+               <button onClick={()=>handleUpdateFixed(editingFixedExpense)} className="flex-1 py-3 bg-pink-300 text-white rounded-xl text-xs">儲存</button>
+             </div>
+          </div>
+        </div>
       )}
 
       <footer className="fixed bottom-0 w-full bg-white/80 backdrop-blur-xl border-t border-pink-50 p-8 flex justify-around items-center z-[50]">
