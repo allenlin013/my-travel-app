@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useMemo } from 'react';
-import { Plane, Wallet, RefreshCw, Map as MapIcon, Book, ListChecks, Sun, Cloud, CloudRain, Check, PlusCircle } from 'lucide-react';
+import { Plane, Wallet, RefreshCw, Map as MapIcon, Book, ListChecks, Sun, Cloud, CloudRain, Check, PlusCircle, FileText, Save } from 'lucide-react';
 import { colors, itineraryData as initialItinerary, prepList, defaultExchangeRate, initialFixedExpenses, ItineraryDay, Expense, PAYERS, Spot } from './data/itinerary';
 import { SpotCard, DetailModal, DailyRouteMap, AddSpotModal, ExpenseChart } from './components/TravelComponents';
 
@@ -14,7 +14,12 @@ export default function UltimateOsakaApp() {
   
   const [walletTab, setWalletTab] = useState<'total'|'fixed'|number>('total');
   const [editingFixedExpense, setEditingFixedExpense] = useState<Expense | null>(null);
+  
+  // Checklist 狀態
   const [checklistStatus, setChecklistStatus] = useState<Record<string, string[]>>({});
+  const [checklistNotes, setChecklistNotes] = useState<Record<string, string>>({}); // 儲存每個項目的備註
+  const [editingChecklistNoteId, setEditingChecklistNoteId] = useState<string | null>(null); // 當前正在編輯備註的項目ID
+
   const [isAddSpotOpen, setIsAddSpotOpen] = useState(false);
 
   const [itinerary, setItinerary] = useState<ItineraryDay[]>(initialItinerary);
@@ -81,12 +86,22 @@ export default function UltimateOsakaApp() {
     return allExpensesList.filter(e => e.sortKey === walletTab);
   }, [walletTab, allExpensesList]);
 
+  // --- Handlers ---
+
   const handleUpdateExpenses = (spotId: string, newExpenses: Expense[]) => {
     setItinerary(prev => prev.map(day => ({
       ...day,
       spots: day.spots.map(spot => spot.id === spotId ? { ...spot, expenses: newExpenses } : spot)
     })));
     setSelectedSpot((prev: any) => prev ? { ...prev, expenses: newExpenses } : null);
+  };
+
+  const handleUpdateSpotDetails = (spotId: string, newDetails: string) => {
+    setItinerary(prev => prev.map(day => ({
+      ...day,
+      spots: day.spots.map(spot => spot.id === spotId ? { ...spot, details: newDetails } : spot)
+    })));
+    setSelectedSpot((prev: any) => prev ? { ...prev, details: newDetails } : null);
   };
 
   const handleUpdateFixed = (expense: Expense) => {
@@ -113,6 +128,10 @@ export default function UltimateOsakaApp() {
     });
   };
 
+  const handleUpdateChecklistNote = (itemId: string, note: string) => {
+    setChecklistNotes(prev => ({ ...prev, [itemId]: note }));
+  };
+
   const handleAddSpot = (newSpot: Spot) => {
     setItinerary(prev => prev.map(day => {
       if (day.day === activeDay) {
@@ -124,6 +143,15 @@ export default function UltimateOsakaApp() {
     setIsAddSpotOpen(false);
   };
 
+  const handleDeleteSpot = (spotId: string) => {
+    if(!confirm("確定要刪除此行程嗎？")) return;
+    setItinerary(prev => prev.map(day => ({
+      ...day,
+      spots: day.spots.filter(s => s.id !== spotId)
+    })));
+    setSelectedSpot(null);
+  };
+
   const getWeatherIcon = (iconName: string) => {
     switch(iconName) {
       case 'Sunny': return <Sun size={14} className="text-yellow-500"/>;
@@ -133,7 +161,8 @@ export default function UltimateOsakaApp() {
     }
   };
 
-  const pageAnim = "animate-in slide-in-from-bottom-10 fade-in zoom-in-95 duration-700 ease-out";
+  // 頁面切換動畫
+  const pageAnim = "animate-in slide-in-from-bottom-8 fade-in duration-500 ease-out fill-mode-forwards";
 
   return (
     <div className="min-h-screen pb-32 overflow-hidden relative" style={{ backgroundColor: colors.bg, color: colors.text }}>
@@ -231,7 +260,6 @@ export default function UltimateOsakaApp() {
 
                {walletTab === 'total' && (
                  <div className="space-y-6">
-                   {/* 圓環圖表 */}
                    <ExpenseChart payerStats={stats.payerStats} exchangeRate={exchangeRate} />
 
                    <div className="grid grid-cols-2 gap-4">
@@ -326,9 +354,43 @@ export default function UltimateOsakaApp() {
                     <div className="space-y-4">
                       {sec.items.map((item, itemIdx) => {
                         const itemId = `${secIdx}-${itemIdx}`;
+                        const isEditing = editingChecklistNoteId === itemId;
+                        const note = checklistNotes[itemId];
+
                         return (
                           <div key={itemId} className="pb-4 border-b border-slate-50 last:border-0 last:pb-0">
-                            <p className="text-sm text-slate-700 mb-3 ml-1">{item}</p>
+                            <div className="flex justify-between items-start mb-2">
+                              <p className="text-sm text-slate-700 ml-1">{item}</p>
+                              <button 
+                                onClick={() => setEditingChecklistNoteId(isEditing ? null : itemId)}
+                                className={`p-1 rounded-full ${note ? 'text-pink-400' : 'text-slate-300'}`}
+                              >
+                                <FileText size={14}/>
+                              </button>
+                            </div>
+                            
+                            {/* 備註顯示與編輯區 */}
+                            {(isEditing || note) && (
+                              <div className="mb-3 ml-1">
+                                {isEditing ? (
+                                  <div className="flex gap-2">
+                                    <input 
+                                      className="w-full bg-slate-50 p-2 rounded-xl text-xs outline-none"
+                                      placeholder="輸入備註..."
+                                      value={note || ''}
+                                      onChange={(e) => handleUpdateChecklistNote(itemId, e.target.value)}
+                                      autoFocus
+                                    />
+                                    <button onClick={() => setEditingChecklistNoteId(null)} className="text-slate-400">
+                                      <Check size={14}/>
+                                    </button>
+                                  </div>
+                                ) : (
+                                  <p className="text-[10px] text-slate-400 italic bg-slate-50 p-2 rounded-lg">{note}</p>
+                                )}
+                              </div>
+                            )}
+
                             <div className="flex flex-wrap gap-2">
                               {PAYERS.map(p => {
                                 const isChecked = checklistStatus[itemId]?.includes(p);
@@ -367,6 +429,8 @@ export default function UltimateOsakaApp() {
           onClose={() => setSelectedSpot(null)} 
           onNav={handleNavigation} 
           onUpdateExpenses={handleUpdateExpenses}
+          onUpdateDetails={handleUpdateSpotDetails}
+          onDeleteSpot={handleDeleteSpot}
           exchangeRate={exchangeRate}
         />
       )}

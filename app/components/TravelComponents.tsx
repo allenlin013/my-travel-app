@@ -1,6 +1,6 @@
 // app/components/TravelComponents.tsx
 import React, { useState, useMemo } from 'react';
-import { Train, Info, Utensils, Navigation2, MapPin, X, ExternalLink, Save, Wallet, Plus, Trash2, Map, Tag, Clock, DollarSign, PieChart } from 'lucide-react';
+import { Train, Info, Utensils, Navigation2, MapPin, X, ExternalLink, Save, Wallet, Plus, Trash2, Map, Tag, Clock, DollarSign, PieChart, Edit3 } from 'lucide-react';
 import { PAYERS, Expense, Spot } from '../data/itinerary';
 
 const formatNum = (amount: number) => new Intl.NumberFormat('en-US', { maximumFractionDigits: 0 }).format(amount);
@@ -81,10 +81,15 @@ export const DailyRouteMap = ({ dayData, colors }: any) => {
   );
 };
 
-// --- 3. 詳情彈窗 (含記帳編輯) ---
-export const DetailModal = ({ spot, onClose, onNav, onUpdateExpenses, colors, exchangeRate }: any) => {
+// --- 3. 詳情彈窗 (含記帳編輯、備註編輯、刪除功能) ---
+export const DetailModal = ({ spot, onClose, onNav, onUpdateExpenses, onUpdateDetails, onDeleteSpot, colors, exchangeRate }: any) => {
   const [expenses, setExpenses] = useState<Expense[]>(spot.expenses);
+  
+  // 備註編輯狀態
+  const [isEditingDetails, setIsEditingDetails] = useState(false);
+  const [details, setDetails] = useState(spot.details);
 
+  // 支出項目處理
   const handleUpdateItem = (idx: number, field: keyof Expense, value: any) => {
     const newExpenses = [...expenses];
     newExpenses[idx] = { ...newExpenses[idx], [field]: value };
@@ -107,9 +112,14 @@ export const DetailModal = ({ spot, onClose, onNav, onUpdateExpenses, colors, ex
     setExpenses(newExpenses);
   };
 
-  const handleSave = () => {
+  // 儲存所有變更 (支出 + 備註)
+  const handleSaveExpenses = () => {
     onUpdateExpenses(spot.id, expenses);
-    onClose();
+  };
+
+  const handleSaveDetails = () => {
+    onUpdateDetails(spot.id, details);
+    setIsEditingDetails(false);
   };
 
   return (
@@ -124,6 +134,38 @@ export const DetailModal = ({ spot, onClose, onNav, onUpdateExpenses, colors, ex
         </div>
 
         <div className="space-y-8">
+          
+          {/* 1. 備註 / 介紹區塊 (可編輯) */}
+          <section>
+            <div className="flex justify-between items-center mb-4">
+              <h4 className="text-[10px] uppercase tracking-[0.2em] flex items-center gap-2" style={{ color: colors.accent }}>
+                <Info size={14}/> 介紹 / 備註
+              </h4>
+              {!isEditingDetails ? (
+                <button onClick={() => setIsEditingDetails(true)} className="text-slate-300 hover:text-slate-500">
+                  <Edit3 size={14}/>
+                </button>
+              ) : (
+                <button onClick={handleSaveDetails} className="text-[10px] bg-slate-800 text-white px-3 py-1 rounded-full">
+                  完成
+                </button>
+              )}
+            </div>
+            
+            {isEditingDetails ? (
+              <textarea 
+                className="w-full bg-slate-50 p-4 rounded-2xl text-sm leading-loose outline-none text-slate-600 resize-none h-32"
+                value={details}
+                onChange={(e) => setDetails(e.target.value)}
+              />
+            ) : (
+              <p className="text-sm font-light leading-loose text-slate-500 text-justify whitespace-pre-wrap">
+                {spot.details}
+              </p>
+            )}
+          </section>
+
+          {/* 2. 支出編輯區塊 */}
           <div className="bg-slate-50 p-6 rounded-[2.5rem]">
             <div className="flex justify-between items-center mb-4">
               <h4 className="text-[10px] uppercase tracking-[0.2em] flex items-center gap-2 text-slate-500">
@@ -187,15 +229,10 @@ export const DetailModal = ({ spot, onClose, onNav, onUpdateExpenses, colors, ex
               {expenses.length === 0 && <p className="text-center text-[10px] opacity-30 py-4">暫無支出紀錄</p>}
             </div>
             
-            <button onClick={handleSave} className="w-full mt-4 py-3 bg-pink-300 text-white rounded-xl text-xs flex items-center justify-center gap-2 shadow-md active:scale-95 transition-all">
-              <Save size={14}/> 儲存所有變更
+            <button onClick={handleSaveExpenses} className="w-full mt-4 py-3 bg-pink-300 text-white rounded-xl text-xs flex items-center justify-center gap-2 shadow-md active:scale-95 transition-all">
+              <Save size={14}/> 儲存支出變更
             </button>
           </div>
-
-          <section>
-            <h4 className="text-[10px] uppercase tracking-[0.2em] mb-4 flex items-center gap-2" style={{ color: colors.accent }}><Info size={14}/>景點介紹</h4>
-            <p className="text-sm font-light leading-loose text-slate-500 text-justify">{spot.details}</p>
-          </section>
 
           <div className="flex flex-col gap-3">
             <button 
@@ -204,12 +241,20 @@ export const DetailModal = ({ spot, onClose, onNav, onUpdateExpenses, colors, ex
             >
               <Navigation2 size={14} /> 啟動接續導覽
             </button>
-            <button 
-              onClick={() => onNav('spot')} 
-              className="w-full py-4 rounded-full border border-slate-100 text-[10px] tracking-[0.3em] uppercase text-slate-400"
-            >
-              地點定位
-            </button>
+            <div className="grid grid-cols-3 gap-3">
+              <button 
+                onClick={() => onNav('spot')} 
+                className="col-span-2 py-4 rounded-full border border-slate-100 text-[10px] tracking-[0.3em] uppercase text-slate-400"
+              >
+                地點定位
+              </button>
+              <button 
+                onClick={() => onDeleteSpot(spot.id)} 
+                className="col-span-1 py-4 rounded-full bg-red-50 text-red-300 text-[10px] flex items-center justify-center"
+              >
+                <Trash2 size={16}/>
+              </button>
+            </div>
           </div>
         </div>
       </div>
@@ -353,31 +398,28 @@ export const AddSpotModal = ({ onClose, onSave }: any) => {
   );
 };
 
-// --- 5. 圓環統計圖表 (New!) ---
+// --- 5. 莫蘭迪配色圓環圖表 ---
 export const ExpenseChart = ({ payerStats, exchangeRate }: any) => {
-  // 配色對應表
+  // 莫蘭迪色系配色表
   const colors: Record<string, string> = {
-    "YenLin": "#F472B6", // Pink-400
-    "CC": "#60A5FA",     // Blue-400
-    "Fu": "#34D399",     // Emerald-400
-    "Wen": "#FBBF24",    // Amber-400
-    "Dad": "#A78BFA",    // Violet-400
-    "Sister": "#FB923C"  // Orange-400
+    "YenLin": "#D4A5A5", // 莫蘭迪粉 (主色)
+    "CC": "#8E9EAB",     // 莫蘭迪藍灰
+    "Fu": "#A7B49E",     // 莫蘭迪綠 (鼠尾草)
+    "Wen": "#D4C5A8",    // 莫蘭迪奶茶
+    "Dad": "#8D9399",    // 莫蘭迪鐵灰
+    "Sister": "#C5B49E"  // 莫蘭迪橘褐
   };
 
-  // 1. 計算每個人轉換成台幣的總金額
   const data = PAYERS.map(p => {
     const stats = payerStats[p] || { jpy: 0, twd: 0 };
     const totalTWD = stats.twd + (stats.jpy * exchangeRate);
     return { name: p, value: totalTWD, color: colors[p] || "#CBD5E1" };
-  }).filter(d => d.value > 0); // 只顯示有支出的
+  }).filter(d => d.value > 0);
 
   const totalValue = data.reduce((acc, cur) => acc + cur.value, 0);
 
-  // 2. 生成 Conic Gradient 字串
   const gradientString = useMemo(() => {
     if (totalValue === 0) return "conic-gradient(#f1f5f9 0% 100%)";
-    
     let currentDeg = 0;
     const segments = data.map(d => {
       const start = currentDeg;
@@ -395,16 +437,13 @@ export const ExpenseChart = ({ payerStats, exchangeRate }: any) => {
       <h3 className="text-[10px] uppercase tracking-[0.2em] opacity-40 text-center mb-6">Expense Distribution</h3>
       
       <div className="flex items-center justify-center gap-8">
-        {/* 圖表本體 */}
         <div className="relative w-40 h-40 rounded-full shadow-inner" style={{ background: gradientString }}>
-          {/* 中間挖空成甜甜圈 */}
           <div className="absolute inset-4 bg-white rounded-full flex items-center justify-center flex-col">
              <span className="text-[10px] text-slate-400">Total</span>
              <span className="text-xs font-bold text-slate-700">NT${formatNum(totalValue)}</span>
           </div>
         </div>
 
-        {/* 圖例 */}
         <div className="flex flex-col gap-2">
           {data.map(d => (
             <div key={d.name} className="flex items-center gap-2">
