@@ -5,7 +5,7 @@ import { PAYERS, Expense, Spot } from '../data/itinerary';
 
 const formatNum = (amount: number) => new Intl.NumberFormat('en-US', { maximumFractionDigits: 0 }).format(amount);
 
-// --- 1. 景點卡片 ---
+// --- 1. 景點卡片 (更新：簡介在標題下，價格在右下) ---
 export const SpotCard = ({ spot, onClick, colors, exchangeRate }: any) => {
   const totalJPY = spot.expenses
     .filter((e: Expense) => e.currency === 'JPY')
@@ -18,25 +18,42 @@ export const SpotCard = ({ spot, onClick, colors, exchangeRate }: any) => {
   const approxTWD = totalTWD + (totalJPY * exchangeRate);
 
   return (
-    <div className="bg-white rounded-[3rem] p-8 shadow-sm border border-pink-50 transition-all active:scale-[0.98]" onClick={() => onClick(spot)}>
-      <div className="flex justify-between items-center mb-4">
-        <span className="text-[10px] font-mono tracking-tighter" style={{ color: colors.accent }}>{spot.time}</span>
+    <div 
+      className="bg-white rounded-[2.5rem] p-6 shadow-sm border border-pink-50 transition-all active:scale-[0.98]" 
+      onClick={() => onClick(spot)}
+    >
+      {/* 頂部：時間與標籤 */}
+      <div className="flex justify-between items-center mb-3">
+        <span className="text-[12px] font-mono font-bold tracking-tighter" style={{ color: colors.accent }}>
+          {spot.time}
+        </span>
         <div className="flex gap-2">
            <span className="text-[9px] uppercase tracking-widest px-3 py-1 bg-pink-50 text-pink-400 rounded-full">{spot.tag}</span>
         </div>
       </div>
-      <h3 className="text-lg font-normal mb-2 leading-tight">{spot.title}</h3>
+
+      {/* 中間：標題與簡介 */}
+      <div className="mb-2">
+        <h3 className="text-lg font-normal leading-tight text-slate-800">{spot.title}</h3>
+        {/* 新增：標題下方的簡介，限制兩行 */}
+        <p className="text-xs font-light text-slate-500 mt-2 line-clamp-2 leading-relaxed opacity-80 pr-2">
+          {spot.details}
+        </p>
+      </div>
       
-      <div className="flex flex-col gap-1 mt-4 bg-slate-50 p-4 rounded-2xl w-fit">
-        <div className="flex items-baseline gap-1">
-          <span className="text-xs text-slate-400">NT$</span>
-          <span className="text-xl font-bold text-slate-700 font-mono">{formatNum(approxTWD)}</span>
-        </div>
-        {totalJPY > 0 && (
-          <div className="text-[10px] text-slate-400 font-mono">
-            ( ¥{formatNum(totalJPY)} )
+      {/* 底部：價格靠右下顯示 */}
+      <div className="flex justify-end mt-3">
+        <div className="flex flex-col items-end bg-slate-50 px-4 py-2 rounded-2xl">
+          <div className="flex items-baseline gap-1">
+            <span className="text-[10px] text-slate-400">NT$</span>
+            <span className="text-lg font-bold text-slate-700 font-mono">{formatNum(approxTWD)}</span>
           </div>
-        )}
+          {totalJPY > 0 && (
+            <div className="text-[9px] text-slate-300 font-mono">
+              ( ¥{formatNum(totalJPY)} )
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );
@@ -84,12 +101,9 @@ export const DailyRouteMap = ({ dayData, colors }: any) => {
 // --- 3. 詳情彈窗 (含記帳編輯、備註編輯、刪除功能) ---
 export const DetailModal = ({ spot, onClose, onNav, onUpdateExpenses, onUpdateDetails, onDeleteSpot, colors, exchangeRate }: any) => {
   const [expenses, setExpenses] = useState<Expense[]>(spot.expenses);
-  
-  // 備註編輯狀態
   const [isEditingDetails, setIsEditingDetails] = useState(false);
   const [details, setDetails] = useState(spot.details);
 
-  // 支出項目處理
   const handleUpdateItem = (idx: number, field: keyof Expense, value: any) => {
     const newExpenses = [...expenses];
     newExpenses[idx] = { ...newExpenses[idx], [field]: value };
@@ -112,7 +126,6 @@ export const DetailModal = ({ spot, onClose, onNav, onUpdateExpenses, onUpdateDe
     setExpenses(newExpenses);
   };
 
-  // 儲存所有變更 (支出 + 備註)
   const handleSaveExpenses = () => {
     onUpdateExpenses(spot.id, expenses);
   };
@@ -400,7 +413,6 @@ export const AddSpotModal = ({ onClose, onSave }: any) => {
 
 // --- 5. 莫蘭迪配色圓環圖表 ---
 export const ExpenseChart = ({ payerStats, exchangeRate }: any) => {
-  // 莫蘭迪色系配色表
   const colors: Record<string, string> = {
     "YenLin": "#8E9BAE", // 莫蘭迪藍
     "CC": "#F4BAAF",     // 莫蘭迪粉
