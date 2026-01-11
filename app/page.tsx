@@ -1,17 +1,87 @@
 "use client";
 
-import React, { useState } from 'react';
-import { Plane, Calendar, Wallet, RefreshCw, Map as MapIcon, Book, ListChecks } from 'lucide-react';
-import { colors, itineraryData, prepList, exchangeRate } from './data/itinerary';
+import React, { useState, useEffect, useMemo } from 'react';
+import { Plane, Calendar, Wallet, RefreshCw, Map as MapIcon, Book, ListChecks, Sun, Cloud, CloudRain } from 'lucide-react';
+import { colors, itineraryData as initialItinerary, prepList, defaultExchangeRate, initialFixedExpenses } from './data/itinerary';
 import { SpotCard, DetailModal, DailyRouteMap } from './components/TravelComponents';
 
 export default function UltimateOsakaApp() {
   const [activeDay, setActiveDay] = useState(1);
   const [selectedSpot, setSelectedSpot] = useState<any>(null);
   const [activeTab, setActiveTab] = useState('diary');
+  
+  // 狀態管理
+  const [itinerary, setItinerary] = useState(initialItinerary);
+  const [fixedExpenses, setFixedExpenses] = useState(initialFixedExpenses);
+  const [exchangeRate, setExchangeRate] = useState(defaultExchangeRate);
   const [jpyInput, setJpyInput] = useState<string>("1000");
 
-  const currentDayData = itineraryData.find(d => d.day === activeDay) || itineraryData[0];
+  // 1. 實時匯率抓取
+  useEffect(() => {
+    const fetchRate = async () => {
+      try {
+        const res = await fetch('https://api.exchangerate-api.com/v4/latest/JPY');
+        const data = await res.json();
+        if (data && data.rates && data.rates.TWD) {
+          setExchangeRate(data.rates.TWD);
+        }
+      } catch (e) {
+        console.error("Rate fetch failed, using default");
+      }
+    };
+    fetchRate();
+  }, []);
+
+  const currentDayData = itinerary.find(d => d.day === activeDay) || itinerary[0];
+
+  // 2. 計算總預算 (列出所有項目)
+  const budgetList = useMemo(() => {
+    let list: any[] = [];
+    
+    // 加入固定支出
+    fixedExpenses.forEach(item => {
+      list.push({
+        title: item.title,
+        cost: item.cost,
+        currency: item.currency,
+        type: '固定'
+      });
+    });
+
+    // 加入行程支出
+    itinerary.forEach(day => {
+      day.spots.forEach(spot => {
+        if (spot.cost > 0) {
+          list.push({
+            title: spot.title,
+            cost: spot.cost,
+            currency: spot.currency || 'JPY',
+            type: '行程'
+          });
+        }
+      });
+    });
+    return list;
+  }, [itinerary, fixedExpenses]);
+
+  const totalTWD = useMemo(() => {
+    return budgetList.reduce((acc, item) => {
+      if (item.currency === 'TWD') return acc + item.cost;
+      return acc + (item.cost * exchangeRate);
+    }, 0);
+  }, [budgetList, exchangeRate]);
+
+  // 更新景點費用函數 (傳遞給 Modal)
+  const handleUpdateSpotCost = (spotId: string, newCost: number) => {
+    setItinerary(prev => prev.map(day => ({
+      ...day,
+      spots: day.spots.map(spot => 
+        spot.id === spotId ? { ...spot, cost: newCost } : spot
+      )
+    })));
+    // 如果當前正在看該景點，也更新選中的景點狀態以即時顯示
+    setSelectedSpot((prev: any) => prev ? { ...prev, cost: newCost } : null);
+  };
 
   const handleNavigation = (mode: 'route' | 'spot') => {
     if (!selectedSpot) return;
@@ -22,6 +92,19 @@ export default function UltimateOsakaApp() {
       const dest = encodeURIComponent(selectedSpot.title);
       const url = `https://www.google.com/maps/dir/?api=1&origin=${origin}&destination=${dest}&travelmode=transit`;
       window.open(url, '_blank');
+    }
+  };
+
+  // 格式化貨幣顯示
+  const formatVal = (val: number) => new Intl.NumberFormat('zh-TW').format(Math.round(val));
+
+  // 天氣 Icon 對照
+  const getWeatherIcon = (iconName: string) => {
+    switch(iconName) {
+      case 'Sunny': return <Sun size={14} className="text-yellow-500" />;
+      case 'Cloudy': return <Cloud size={14} className="text-slate-400" />;
+      case 'Rain': return <CloudRain size={14} className="text-blue-400" />;
+      default: return <Sun size={14} />;
     }
   };
 
@@ -39,15 +122,14 @@ export default function UltimateOsakaApp() {
       </div>
 
       <div className="relative z-10">
-        {/* Header - 保持在頂部，供切換天數 */}
         <header className="p-8 pb-4 text-center sticky top-0 bg-[#F7F3F2]/80 backdrop-blur-md z-40">
           <div className="flex justify-between items-center mb-6">
             <Plane size={18} style={{ color: colors.accent }} />
             <h1 className="text-xl font-light tracking-[0.4em] uppercase">Kyoto Osaka</h1>
-            <div className="w-5" />
+            <div className="text-[10px] font-mono opacity-40">1 JPY ≈ {exchangeRate.toFixed(3)} TWD</div>
           </div>
           <div className="flex gap-3 overflow-x-auto no-scrollbar pb-2">
-            {itineraryData.map(d => (
+            {itinerary.map(d => (
               <button key={d.day} onClick={() => setActiveDay(d.day)}
                 className={`flex-shrink-0 px-5 py-2 rounded-2xl text-[10px] tracking-widest transition-all ${activeDay === d.day ? "shadow-md scale-105" : "opacity-30"}`}
                 style={{ backgroundColor: activeDay === d.day ? colors.accent : "white", color: activeDay === d.day ? "white" : colors.text }}>
@@ -64,9 +146,21 @@ export default function UltimateOsakaApp() {
                 <img src={currentDayData.image} className="w-full h-full object-cover" alt="Scenery" 
                      onError={(e: any) => e.target.src="https://images.unsplash.com/photo-1493976040374-85c8e12f0c0e?auto=format&fit=crop&w=800&q=80"} />
                 <div className="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent" />
-                <div className="absolute bottom-8 left-8 text-white">
-                  <span className="text-[10px] tracking-[0.2em] uppercase">{currentDayData.date}</span>
-                  <h2 className="text-2xl font-light tracking-widest">{currentDayData.area}</h2>
+                <div className="absolute bottom-8 left-8 text-white w-full pr-8">
+                  <div className="flex justify-between items-end">
+                    <div>
+                      <span className="text-[10px] tracking-[0.2em] uppercase">{currentDayData.date}</span>
+                      <h2 className="text-2xl font-light tracking-widest">{currentDayData.area}</h2>
+                    </div>
+                    {/* 天氣預估顯示 */}
+                    <div className="flex flex-col items-end bg-black/20 p-2 rounded-xl backdrop-blur-md">
+                       <div className="flex items-center gap-1">
+                         {getWeatherIcon(currentDayData.weather.icon)}
+                         <span className="text-xs font-bold">{currentDayData.weather.temp}</span>
+                       </div>
+                       <span className="text-[8px] opacity-80">{currentDayData.weather.desc}</span>
+                    </div>
+                  </div>
                 </div>
               </div>
 
@@ -86,11 +180,49 @@ export default function UltimateOsakaApp() {
           </div>
         )}
 
-        {/* Guide Tab - 現在顯示每日完整路線圖 */}
+        {/* Guide Tab */}
         {activeTab === 'guide' && (
           <div className="p-10 animate-in fade-in duration-500">
             <h2 className="text-2xl font-light tracking-[0.4em] text-center mb-10 uppercase">Guide Map</h2>
             <DailyRouteMap dayData={currentDayData} colors={colors} />
+          </div>
+        )}
+
+        {/* Wallet Tab - 預算清單 */}
+        {activeTab === 'wallet' && (
+          <div className="p-8 animate-in fade-in duration-500">
+             <h2 className="text-2xl font-light tracking-[0.4em] text-center mb-8 uppercase">Budget</h2>
+             
+             {/* 總金額卡片 */}
+             <div className="bg-white rounded-[3rem] p-8 shadow-xl text-center border border-pink-50 mb-8">
+                <span className="text-[10px] uppercase tracking-[0.2em] opacity-40">Total Estimated (TWD)</span>
+                <div className="text-4xl font-light my-2 tracking-tighter" style={{ color: colors.accent }}>
+                   ${formatVal(totalTWD)}
+                </div>
+                <p className="text-[10px] opacity-30 italic">包含機票、住宿與所有行程支出</p>
+             </div>
+
+             {/* 詳細清單 */}
+             <div className="space-y-3 pb-20">
+               {budgetList.map((item, idx) => (
+                 <div key={idx} className="bg-white/60 p-5 rounded-[2rem] flex justify-between items-center border border-white">
+                    <div className="flex flex-col gap-1">
+                       <span className="text-xs font-medium text-slate-700">{item.title}</span>
+                       <span className="text-[9px] uppercase tracking-wider opacity-40 px-2 py-0.5 bg-slate-100 rounded-full w-fit">
+                         {item.type} • {item.currency}
+                       </span>
+                    </div>
+                    <div className="text-right">
+                       <div className="text-sm font-bold text-slate-600">
+                         {item.currency === 'TWD' ? '$' : '¥'} {formatVal(item.cost)}
+                       </div>
+                       {item.currency === 'JPY' && (
+                         <div className="text-[9px] opacity-40">≈ ${formatVal(item.cost * exchangeRate)}</div>
+                       )}
+                    </div>
+                 </div>
+               ))}
+             </div>
           </div>
         )}
 
@@ -112,10 +244,13 @@ export default function UltimateOsakaApp() {
                     <label className="text-[10px] uppercase tracking-[0.2em] opacity-30 block mb-4 ml-4">Taiwan Dollar (TWD)</label>
                     <div className="flex items-center bg-pink-50/30 p-6 rounded-[2rem] border border-pink-100">
                       <span className="text-xl font-light mr-4 opacity-40">$</span>
-                      <div className="text-2xl font-light">{(Number(jpyInput) * exchangeRate).toFixed(0)}</div>
+                      <div className="text-2xl font-light">{formatVal(Number(jpyInput) * exchangeRate)}</div>
                     </div>
                   </div>
                </div>
+               <p className="text-[10px] text-center mt-12 opacity-30 tracking-widest font-light italic">
+                 Real-time Rate: 1 JPY ≈ {exchangeRate.toFixed(4)} TWD
+               </p>
             </div>
           </div>
         )}
@@ -144,10 +279,15 @@ export default function UltimateOsakaApp() {
       </div>
 
       {selectedSpot && (
-        <DetailModal spot={selectedSpot} colors={colors} onClose={() => setSelectedSpot(null)} onNav={handleNavigation} />
+        <DetailModal 
+          spot={selectedSpot} 
+          colors={colors} 
+          onClose={() => setSelectedSpot(null)} 
+          onNav={handleNavigation} 
+          onUpdateCost={handleUpdateSpotCost}
+        />
       )}
 
-      {/* 底部導覽 */}
       <footer className="fixed bottom-0 w-full bg-white/80 backdrop-blur-xl border-t border-pink-50 p-8 flex justify-around items-center z-[50]">
         {[
           { id: 'diary', icon: Book, label: 'Diary' },
