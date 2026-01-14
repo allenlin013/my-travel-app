@@ -1,9 +1,12 @@
 "use client";
 
 import React, { useState, useEffect, useMemo } from 'react';
-import { Plane, Wallet, RefreshCw, Map as MapIcon, Book, ListChecks, Sun, Cloud, CloudRain, Check, PlusCircle, FileText, Save } from 'lucide-react';
+// 1. 引入 Bot 圖示
+import { Plane, Wallet, RefreshCw, Map as MapIcon, Book, ListChecks, Sun, Cloud, CloudRain, Check, PlusCircle, FileText, Save, Bot } from 'lucide-react';
 import { colors, itineraryData as initialItinerary, prepList, defaultExchangeRate, initialFixedExpenses, ItineraryDay, Expense, PAYERS, Spot } from './data/itinerary';
 import { SpotCard, DetailModal, DailyRouteMap, AddSpotModal, ExpenseChart } from './components/TravelComponents';
+// 2. 引入剛建立的 AIChat 組件
+import AIChat from './components/AIChat';
 
 // Firebase imports
 import { db } from './firebase'; 
@@ -30,25 +33,24 @@ export default function UltimateOsakaApp() {
   const [jpyInput, setJpyInput] = useState<string>("1000");
 
   useEffect(() => {
-    // 1. 只監聽清單（會頻繁變動的部分）
-    const checklistRef = doc(db, "trips", "osaka2026_checklist");
-    const unsubChecklist = onSnapshot(checklistRef, (snap) => {
-      if (snap.exists()) {
-        setChecklistStatus(snap.data().status || {});
-        setChecklistNotes(snap.data().notes || {});
+    const tripDocRef = doc(db, "trips", "osaka2026");
+    const unsubscribe = onSnapshot(tripDocRef, (docSnap) => {
+      if (docSnap.exists()) {
+        const data = docSnap.data();
+        if (data.itinerary) setItinerary(data.itinerary);
+        if (data.fixedExpenses) setFixedExpenses(data.fixedExpenses);
+        if (data.checklistStatus) setChecklistStatus(data.checklistStatus);
+        if (data.checklistNotes) setChecklistNotes(data.checklistNotes);
+      } else {
+        setDoc(tripDocRef, {
+          itinerary: initialItinerary,
+          fixedExpenses: initialFixedExpenses,
+          checklistStatus: {},
+          checklistNotes: {}
+        });
       }
-    });
-
-    // 2. 針對行程，改用 getDoc (唯讀一次)，除非真的有修改才手動刷新
-    const itineraryRef = doc(db, "trips", "osaka2026_itinerary");
-    getDoc(itineraryRef).then(snap => {
-      if (snap.exists()) {
-        setItinerary(snap.data().itinerary);
-        setFixedExpenses(snap.data().fixedExpenses);
-      }
-    });
-
-    return () => unsubChecklist();
+    }, (error) => console.error("Firebase Sync Error:", error));
+    return () => unsubscribe();
   }, []);
 
   const saveToCloud = async (newData: Partial<{ itinerary: ItineraryDay[], fixedExpenses: Expense[], checklistStatus: any, checklistNotes: any }>) => {
@@ -117,7 +119,7 @@ export default function UltimateOsakaApp() {
     return allExpensesList.filter(e => e.sortKey === walletTab);
   }, [walletTab, allExpensesList]);
 
-  // --- Handlers with Dynamic Navigation Fix ---
+  // --- Handlers ---
 
   const handleUpdateExpenses = (spotId: string, newExpenses: Expense[]) => {
     const newItinerary = itinerary.map(day => ({
@@ -187,21 +189,17 @@ export default function UltimateOsakaApp() {
     saveToCloud({ itinerary: newItinerary });
   };
 
-  // 升級版導航邏輯：動態尋找上一站
   const handleNavigation = (mode: 'route' | 'spot') => {
     if (!selectedSpot) return;
     
     if (mode === 'spot') {
       const query = selectedSpot.address || selectedSpot.title;
-      // 使用 search query 確保能找到
       const url = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(query)}`;
       window.open(url, '_blank');
     } else {
-      // 1. 找出目前的行程清單
       const currentDaySpots = currentDayData.spots;
       const currentIndex = currentDaySpots.findIndex(s => s.id === selectedSpot.id);
       
-      // 2. 決定起點：如果有上一站，用上一站的地址/名稱；如果是第一站，用預設的 prevSpotName (機場/飯店)
       let origin = selectedSpot.prevSpotName;
       if (currentIndex > 0) {
         const prevSpot = currentDaySpots[currentIndex - 1];
@@ -482,13 +480,13 @@ export default function UltimateOsakaApp() {
             </div>
           )}
 
-          {activeTab === 'ai' && (
-            <div className="p-6">
-              <h2 className="text-2xl font-light tracking-[0.4em] text-center mb-8 uppercase">AI Assistant</h2>
+          {/* 3. 新增的 AI 聊天 Tab 內容 */}
+          {activeTab === 'chat' && (
+            <div className="p-6 pb-32">
+              <h2 className="text-2xl font-light tracking-[0.4em] text-center mb-8 uppercase">AI Guide</h2>
               <AIChat itineraryData={itinerary} colors={colors} />
             </div>
           )}
-          
         </div>
       </div>
 
@@ -543,7 +541,8 @@ export default function UltimateOsakaApp() {
           { id: 'wallet', icon: Wallet, label: 'Wallet' },
           { id: 'currency', icon: RefreshCw, label: 'Exch.' },
           { id: 'guide', icon: MapIcon, label: 'Guide' },
-          { id: 'prep', icon: ListChecks, label: 'Prep' }
+          { id: 'prep', icon: ListChecks, label: 'Prep' },
+          { id: 'chat', icon: Bot, label: 'AI' }
         ].map(tab => (
           <button key={tab.id} onClick={() => setActiveTab(tab.id)}
             className={`flex flex-col items-center gap-2 transition-all ${activeTab === tab.id ? "scale-110 opacity-100" : "opacity-20"}`}>
