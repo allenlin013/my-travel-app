@@ -17,5 +17,16 @@ const app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
 // 初始化 Firestore 資料庫服務
 const db = getFirestore(app);
 
+// 加入這段：啟用離線持久化
+if (typeof window !== "undefined") {
+  enableIndexedDbPersistence(db).catch((err) => {
+    if (err.code === 'failed-precondition') {
+      console.log("多個分頁同時開啟，快取僅在第一個分頁生效");
+    } else if (err.code === 'unimplemented') {
+      console.log("瀏覽器不支持快取");
+    }
+  });
+}
+
 // 匯出 db 供 page.tsx 使用
 export { db };

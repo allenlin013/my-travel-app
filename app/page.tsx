@@ -30,24 +30,25 @@ export default function UltimateOsakaApp() {
   const [jpyInput, setJpyInput] = useState<string>("1000");
 
   useEffect(() => {
-    const tripDocRef = doc(db, "trips", "osaka2026");
-    const unsubscribe = onSnapshot(tripDocRef, (docSnap) => {
-      if (docSnap.exists()) {
-        const data = docSnap.data();
-        if (data.itinerary) setItinerary(data.itinerary);
-        if (data.fixedExpenses) setFixedExpenses(data.fixedExpenses);
-        if (data.checklistStatus) setChecklistStatus(data.checklistStatus);
-        if (data.checklistNotes) setChecklistNotes(data.checklistNotes);
-      } else {
-        setDoc(tripDocRef, {
-          itinerary: initialItinerary,
-          fixedExpenses: initialFixedExpenses,
-          checklistStatus: {},
-          checklistNotes: {}
-        });
+    // 1. 只監聽清單（會頻繁變動的部分）
+    const checklistRef = doc(db, "trips", "osaka2026_checklist");
+    const unsubChecklist = onSnapshot(checklistRef, (snap) => {
+      if (snap.exists()) {
+        setChecklistStatus(snap.data().status || {});
+        setChecklistNotes(snap.data().notes || {});
       }
-    }, (error) => console.error("Firebase Sync Error:", error));
-    return () => unsubscribe();
+    });
+
+    // 2. 針對行程，改用 getDoc (唯讀一次)，除非真的有修改才手動刷新
+    const itineraryRef = doc(db, "trips", "osaka2026_itinerary");
+    getDoc(itineraryRef).then(snap => {
+      if (snap.exists()) {
+        setItinerary(snap.data().itinerary);
+        setFixedExpenses(snap.data().fixedExpenses);
+      }
+    });
+
+    return () => unsubChecklist();
   }, []);
 
   const saveToCloud = async (newData: Partial<{ itinerary: ItineraryDay[], fixedExpenses: Expense[], checklistStatus: any, checklistNotes: any }>) => {
@@ -480,6 +481,14 @@ export default function UltimateOsakaApp() {
               </div>
             </div>
           )}
+
+          {activeTab === 'ai' && (
+            <div className="p-6">
+              <h2 className="text-2xl font-light tracking-[0.4em] text-center mb-8 uppercase">AI Assistant</h2>
+              <AIChat itineraryData={itinerary} colors={colors} />
+            </div>
+          )}
+          
         </div>
       </div>
 
