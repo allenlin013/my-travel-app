@@ -24,7 +24,7 @@ export default function AIChat({ itineraryData, colors }: { itineraryData: any, 
   
   // 2. 修改模型名稱：改用最穩定的 'Gemini 3 Pro' 以避免 404 錯誤
   // 如果未來想用 1.5 Flash，可嘗試 'gemini-1.5-flash-latest'
-  const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
+  const model = genAI.getGenerativeModel({ model: "gemini-3-flash" });
 
   // 自動捲動到底部
   useEffect(() => {
