@@ -1,5 +1,6 @@
 import { initializeApp, getApps, getApp } from "firebase/app";
-import { getFirestore } from "firebase/firestore";
+// 修改這行：補上 enableIndexedDbPersistence 的匯入
+import { getFirestore, enableIndexedDbPersistence } from "firebase/firestore";
 
 // 您的 Firebase 設定
 const firebaseConfig = {
@@ -17,7 +18,7 @@ const app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
 // 初始化 Firestore 資料庫服務
 const db = getFirestore(app);
 
-// 加入這段：啟用離線持久化
+// 啟用離線持久化 (僅在瀏覽器端執行)
 if (typeof window !== "undefined") {
   enableIndexedDbPersistence(db).catch((err) => {
     if (err.code === 'failed-precondition') {
