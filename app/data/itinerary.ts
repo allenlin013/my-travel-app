@@ -13,7 +13,8 @@ export interface Expense {
 export interface Spot {
   id: string;
   time: string;
-  title: string;
+  title: string;     // 用於顯示 (例如: "一蘭拉麵")
+  address?: string;  // 新增: 用於定位 (例如: "大阪市中央區...")
   tag: string;
   details: string;
   access: string;
@@ -253,7 +254,6 @@ export const itineraryData: ItineraryDay[] = [
   }
 ];
 
-// 擴充後的檢查清單
 export const prepList = [
   { 
     title: "必備文件", 

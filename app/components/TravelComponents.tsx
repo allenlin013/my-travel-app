@@ -5,7 +5,7 @@ import { PAYERS, Expense, Spot } from '../data/itinerary';
 
 const formatNum = (amount: number) => new Intl.NumberFormat('en-US', { maximumFractionDigits: 0 }).format(amount);
 
-// --- 1. 景點卡片 (更新：簡介在標題下，價格在右下) ---
+// --- 1. 景點卡片 ---
 export const SpotCard = ({ spot, onClick, colors, exchangeRate }: any) => {
   const totalJPY = spot.expenses
     .filter((e: Expense) => e.currency === 'JPY')
@@ -22,7 +22,6 @@ export const SpotCard = ({ spot, onClick, colors, exchangeRate }: any) => {
       className="bg-white rounded-[2.5rem] p-6 shadow-sm border border-pink-50 transition-all active:scale-[0.98]" 
       onClick={() => onClick(spot)}
     >
-      {/* 頂部：時間與標籤 */}
       <div className="flex justify-between items-center mb-3">
         <span className="text-[12px] font-mono font-bold tracking-tighter" style={{ color: colors.accent }}>
           {spot.time}
@@ -32,16 +31,15 @@ export const SpotCard = ({ spot, onClick, colors, exchangeRate }: any) => {
         </div>
       </div>
 
-      {/* 中間：標題與簡介 */}
       <div className="mb-2">
         <h3 className="text-lg font-normal leading-tight text-slate-800">{spot.title}</h3>
-        {/* 新增：標題下方的簡介，限制兩行 */}
+        {/* 顯示地名下方的簡介 */}
         <p className="text-xs font-light text-slate-500 mt-2 line-clamp-2 leading-relaxed opacity-80 pr-2">
           {spot.details}
         </p>
       </div>
       
-      {/* 底部：價格靠右下顯示 */}
+      {/* 花費在右下角 */}
       <div className="flex justify-end mt-3">
         <div className="flex flex-col items-end bg-slate-50 px-4 py-2 rounded-2xl">
           <div className="flex items-baseline gap-1">
@@ -65,11 +63,12 @@ export const DailyRouteMap = ({ dayData, colors }: any) => {
 
   const generateRouteUrl = () => {
     const spots = dayData.spots;
-    const origin = encodeURIComponent(spots[0].title);
-    const destination = encodeURIComponent(spots[spots.length - 1].title);
+    // 優先使用地址，若無則使用標題
+    const origin = encodeURIComponent(spots[0].address || spots[0].title);
+    const destination = encodeURIComponent(spots[spots.length - 1].address || spots[spots.length - 1].title);
     let waypoints = "";
     if (spots.length > 2) {
-      const intermediate = spots.slice(1, -1).map((s: any) => encodeURIComponent(s.title));
+      const intermediate = spots.slice(1, -1).map((s: any) => encodeURIComponent(s.address || s.title));
       waypoints = `&waypoints=${intermediate.join('|')}`;
     }
     return `https://www.google.com/maps/dir/?api=1&origin=${origin}&destination=${destination}${waypoints}&travelmode=transit`;
@@ -98,7 +97,7 @@ export const DailyRouteMap = ({ dayData, colors }: any) => {
   );
 };
 
-// --- 3. 詳情彈窗 (含記帳編輯、備註編輯、刪除功能) ---
+// --- 3. 詳情彈窗 ---
 export const DetailModal = ({ spot, onClose, onNav, onUpdateExpenses, onUpdateDetails, onDeleteSpot, colors, exchangeRate }: any) => {
   const [expenses, setExpenses] = useState<Expense[]>(spot.expenses);
   const [isEditingDetails, setIsEditingDetails] = useState(false);
@@ -139,16 +138,22 @@ export const DetailModal = ({ spot, onClose, onNav, onUpdateExpenses, onUpdateDe
     <div className="fixed inset-0 z-[100] flex items-end justify-center bg-black/10 backdrop-blur-sm animate-in fade-in duration-300">
       <div className="bg-white w-full max-w-md rounded-t-[4.5rem] p-10 shadow-2xl animate-in slide-in-from-bottom duration-500 overflow-y-auto max-h-[90vh]">
         <div className="flex justify-between items-start mb-8">
-          <div>
+          <div className="w-full pr-4">
             <span className="text-[10px] tracking-[0.4em] uppercase opacity-30 italic">Details</span>
             <h2 className="text-2xl font-light mt-1 leading-tight">{spot.title}</h2>
+            {/* 顯示地址 (定位用) */}
+            {spot.address && (
+              <p className="text-xs text-slate-400 mt-2 flex items-start gap-1">
+                <MapPin size={12} className="mt-0.5 flex-shrink-0"/> 
+                {spot.address}
+              </p>
+            )}
           </div>
-          <button onClick={onClose} className="p-3 bg-slate-50 rounded-full text-slate-300"><X size={22} /></button>
+          <button onClick={onClose} className="p-3 bg-slate-50 rounded-full text-slate-300 flex-shrink-0"><X size={22} /></button>
         </div>
 
         <div className="space-y-8">
           
-          {/* 1. 備註 / 介紹區塊 (可編輯) */}
           <section>
             <div className="flex justify-between items-center mb-4">
               <h4 className="text-[10px] uppercase tracking-[0.2em] flex items-center gap-2" style={{ color: colors.accent }}>
@@ -178,7 +183,6 @@ export const DetailModal = ({ spot, onClose, onNav, onUpdateExpenses, onUpdateDe
             )}
           </section>
 
-          {/* 2. 支出編輯區塊 */}
           <div className="bg-slate-50 p-6 rounded-[2.5rem]">
             <div className="flex justify-between items-center mb-4">
               <h4 className="text-[10px] uppercase tracking-[0.2em] flex items-center gap-2 text-slate-500">
@@ -252,14 +256,14 @@ export const DetailModal = ({ spot, onClose, onNav, onUpdateExpenses, onUpdateDe
               onClick={() => onNav('route')} 
               className="w-full py-4 rounded-full bg-slate-900 text-white text-[10px] tracking-[0.3em] uppercase shadow-xl flex items-center justify-center gap-3"
             >
-              <Navigation2 size={14} /> 啟動接續導覽
+              <Navigation2 size={14} /> 啟動接續導覽 (從上一站)
             </button>
             <div className="grid grid-cols-3 gap-3">
               <button 
                 onClick={() => onNav('spot')} 
                 className="col-span-2 py-4 rounded-full border border-slate-100 text-[10px] tracking-[0.3em] uppercase text-slate-400"
               >
-                地點定位
+                查看地點定位
               </button>
               <button 
                 onClick={() => onDeleteSpot(spot.id)} 
@@ -280,6 +284,7 @@ export const AddSpotModal = ({ onClose, onSave }: any) => {
   const [formData, setFormData] = useState({
     time: '',
     title: '',
+    address: '',
     tag: 'Shopping',
     details: '',
     cost: 0,
@@ -291,12 +296,15 @@ export const AddSpotModal = ({ onClose, onSave }: any) => {
     e.preventDefault();
     if (!formData.title) return;
 
-    const mapUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(formData.title)}`;
+    // 優先使用地址來搜尋
+    const query = formData.address || formData.title;
+    const mapUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(query)}`;
     
     const newSpot: Spot = {
       id: Date.now().toString(),
       time: formData.time || "12:00",
       title: formData.title,
+      address: formData.address, // 儲存地址
       tag: formData.tag,
       details: formData.details || "手動新增的行程",
       access: "自訂行程",
@@ -360,6 +368,16 @@ export const AddSpotModal = ({ onClose, onSave }: any) => {
           </div>
 
           <div className="space-y-1">
+            <label className="text-[10px] uppercase tracking-wider text-slate-400 pl-2"><MapPin size={10} className="inline mr-1"/>地址 (定位用)</label>
+            <input 
+              className="w-full bg-slate-50 p-4 rounded-2xl outline-none text-sm font-medium" 
+              placeholder="例如: 大阪市中央區道頓堀1-4-16" 
+              value={formData.address}
+              onChange={e => setFormData({...formData, address: e.target.value})}
+            />
+          </div>
+
+          <div className="space-y-1">
             <label className="text-[10px] uppercase tracking-wider text-slate-400 pl-2"><Info size={10} className="inline mr-1"/>備註</label>
             <textarea 
               className="w-full bg-slate-50 p-4 rounded-2xl outline-none text-sm h-24 resize-none" 
@@ -414,12 +432,12 @@ export const AddSpotModal = ({ onClose, onSave }: any) => {
 // --- 5. 莫蘭迪配色圓環圖表 ---
 export const ExpenseChart = ({ payerStats, exchangeRate }: any) => {
   const colors: Record<string, string> = {
-    "YenLin": "#8E9BAE", // 莫蘭迪藍
-    "CC": "#F4BAAF",     // 莫蘭迪粉
-    "Fu": "#BFD1C4",     // 莫蘭迪綠
-    "Wen": "#7D6252",    // 莫蘭迪卡其
-    "Dad": "#8D9399",    // 莫蘭迪鐵灰
-    "Sister": "#DBB89C"  // 莫蘭迪奶茶
+    "YenLin": "#D4A5A5", 
+    "CC": "#8E9EAB",     
+    "Fu": "#A7B49E",     
+    "Wen": "#D4C5A8",    
+    "Dad": "#8D9399",    
+    "Sister": "#C5B49E"  
   };
 
   const data = PAYERS.map(p => {

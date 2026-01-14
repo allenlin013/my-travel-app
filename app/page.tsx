@@ -5,7 +5,7 @@ import { Plane, Wallet, RefreshCw, Map as MapIcon, Book, ListChecks, Sun, Cloud,
 import { colors, itineraryData as initialItinerary, prepList, defaultExchangeRate, initialFixedExpenses, ItineraryDay, Expense, PAYERS, Spot } from './data/itinerary';
 import { SpotCard, DetailModal, DailyRouteMap, AddSpotModal, ExpenseChart } from './components/TravelComponents';
 
-// Firebase 相關引入
+// Firebase imports
 import { db } from './firebase'; 
 import { doc, onSnapshot, setDoc, updateDoc } from 'firebase/firestore';
 
@@ -21,7 +21,6 @@ export default function UltimateOsakaApp() {
   const [editingChecklistNoteId, setEditingChecklistNoteId] = useState<string | null>(null);
   const [isAddSpotOpen, setIsAddSpotOpen] = useState(false);
 
-  // --- 資料狀態 (現在會與 Firebase 同步) ---
   const [itinerary, setItinerary] = useState<ItineraryDay[]>(initialItinerary);
   const [fixedExpenses, setFixedExpenses] = useState<Expense[]>(initialFixedExpenses);
   const [checklistStatus, setChecklistStatus] = useState<Record<string, string[]>>({});
@@ -30,21 +29,16 @@ export default function UltimateOsakaApp() {
   const [exchangeRate, setExchangeRate] = useState(defaultExchangeRate);
   const [jpyInput, setJpyInput] = useState<string>("1000");
 
-  // --- 1. Firebase 實時監聽 ---
   useEffect(() => {
-    // 監聽 "trips" 集合下的 "osaka2026" 文件
     const tripDocRef = doc(db, "trips", "osaka2026");
-
     const unsubscribe = onSnapshot(tripDocRef, (docSnap) => {
       if (docSnap.exists()) {
         const data = docSnap.data();
-        // 收到資料庫更新，同步到本地 State
         if (data.itinerary) setItinerary(data.itinerary);
         if (data.fixedExpenses) setFixedExpenses(data.fixedExpenses);
         if (data.checklistStatus) setChecklistStatus(data.checklistStatus);
         if (data.checklistNotes) setChecklistNotes(data.checklistNotes);
       } else {
-        // 如果資料庫是空的，將初始資料寫入 (初始化)
         setDoc(tripDocRef, {
           itinerary: initialItinerary,
           fixedExpenses: initialFixedExpenses,
@@ -52,26 +46,17 @@ export default function UltimateOsakaApp() {
           checklistNotes: {}
         });
       }
-    }, (error) => {
-      console.error("Firebase Sync Error:", error);
-      // 如果沒有 API Key 或連線失敗，這裡會報錯，但 App 仍可顯示初始資料
-    });
-
+    }, (error) => console.error("Firebase Sync Error:", error));
     return () => unsubscribe();
   }, []);
 
-  // --- 2. 寫入 Firebase 的 Helper ---
   const saveToCloud = async (newData: Partial<{ itinerary: ItineraryDay[], fixedExpenses: Expense[], checklistStatus: any, checklistNotes: any }>) => {
     try {
       const tripDocRef = doc(db, "trips", "osaka2026");
       await updateDoc(tripDocRef, newData);
-    } catch (e) {
-      console.error("Save to cloud failed:", e);
-      alert("同步失敗，請檢查 Firebase 設定");
-    }
+    } catch (e) { console.error("Save to cloud failed:", e); }
   };
 
-  // --- 3. 匯率抓取 ---
   useEffect(() => {
     const fetchRate = async () => {
       try {
@@ -85,7 +70,6 @@ export default function UltimateOsakaApp() {
 
   const currentDayData = itinerary.find(d => d.day === activeDay) || itinerary[0];
 
-  // --- 計算邏輯 (保持不變) ---
   const allExpensesList = useMemo(() => {
     let list: Array<Expense & { source: string, sortKey: number }> = [];
     fixedExpenses.forEach(e => list.push({ ...e, source: '固定支出', sortKey: 0 }));
@@ -132,21 +116,15 @@ export default function UltimateOsakaApp() {
     return allExpensesList.filter(e => e.sortKey === walletTab);
   }, [walletTab, allExpensesList]);
 
-  // --- Handlers (改為先計算新狀態，再寫入 Firebase) ---
+  // --- Handlers with Dynamic Navigation Fix ---
 
   const handleUpdateExpenses = (spotId: string, newExpenses: Expense[]) => {
-    // 1. 計算新陣列
     const newItinerary = itinerary.map(day => ({
       ...day,
       spots: day.spots.map(spot => spot.id === spotId ? { ...spot, expenses: newExpenses } : spot)
     }));
-    
-    // 2. 本地更新 (為了即時反應 UI，雖然 onSnapshot 也會更新，但這樣比較順)
     setItinerary(newItinerary);
-    // 更新選中的 Spot 以避免 Modal 內容跳掉
     setSelectedSpot((prev: any) => prev ? { ...prev, expenses: newExpenses } : null);
-    
-    // 3. 雲端同步
     saveToCloud({ itinerary: newItinerary });
   };
 
@@ -170,11 +148,8 @@ export default function UltimateOsakaApp() {
   const toggleCheck = (itemId: string, payer: string) => {
     const currentChecks = checklistStatus[itemId] || [];
     let newChecks;
-    if (currentChecks.includes(payer)) {
-      newChecks = currentChecks.filter(p => p !== payer);
-    } else {
-      newChecks = [...currentChecks, payer];
-    }
+    if (currentChecks.includes(payer)) newChecks = currentChecks.filter(p => p !== payer);
+    else newChecks = [...currentChecks, payer];
     
     const newStatus = { ...checklistStatus, [itemId]: newChecks };
     setChecklistStatus(newStatus);
@@ -184,7 +159,7 @@ export default function UltimateOsakaApp() {
   const handleUpdateChecklistNote = (itemId: string, note: string) => {
     const newNotes = { ...checklistNotes, [itemId]: note };
     setChecklistNotes(newNotes);
-    saveToCloud({ checklistNotes: newNotes }); // 這裡要注意 debounce，為了簡單起見直接存
+    saveToCloud({ checklistNotes: newNotes });
   };
 
   const handleAddSpot = (newSpot: Spot) => {
@@ -195,7 +170,6 @@ export default function UltimateOsakaApp() {
       }
       return day;
     });
-    
     setItinerary(newItinerary);
     setIsAddSpotOpen(false);
     saveToCloud({ itinerary: newItinerary });
@@ -207,18 +181,36 @@ export default function UltimateOsakaApp() {
       ...day,
       spots: day.spots.filter(s => s.id !== spotId)
     }));
-    
     setItinerary(newItinerary);
     setSelectedSpot(null);
     saveToCloud({ itinerary: newItinerary });
   };
 
+  // 升級版導航邏輯：動態尋找上一站
   const handleNavigation = (mode: 'route' | 'spot') => {
     if (!selectedSpot) return;
-    const url = mode === 'spot' 
-      ? selectedSpot.mapUrl 
-      : `https://www.google.com/maps/dir/?api=1&origin=${encodeURIComponent(selectedSpot.prevSpotName)}&destination=${encodeURIComponent(selectedSpot.title)}&travelmode=transit`;
-    window.open(url, '_blank');
+    
+    if (mode === 'spot') {
+      const query = selectedSpot.address || selectedSpot.title;
+      // 使用 search query 確保能找到
+      const url = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(query)}`;
+      window.open(url, '_blank');
+    } else {
+      // 1. 找出目前的行程清單
+      const currentDaySpots = currentDayData.spots;
+      const currentIndex = currentDaySpots.findIndex(s => s.id === selectedSpot.id);
+      
+      // 2. 決定起點：如果有上一站，用上一站的地址/名稱；如果是第一站，用預設的 prevSpotName (機場/飯店)
+      let origin = selectedSpot.prevSpotName;
+      if (currentIndex > 0) {
+        const prevSpot = currentDaySpots[currentIndex - 1];
+        origin = prevSpot.address || prevSpot.title;
+      }
+      
+      const destination = selectedSpot.address || selectedSpot.title;
+      const url = `https://www.google.com/maps/dir/?api=1&origin=${encodeURIComponent(origin)}&destination=${encodeURIComponent(destination)}&travelmode=transit`;
+      window.open(url, '_blank');
+    }
   };
 
   const getWeatherIcon = (iconName: string) => {
