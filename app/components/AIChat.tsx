@@ -18,8 +18,13 @@ export default function AIChat({ itineraryData, colors }: { itineraryData: any, 
   const scrollRef = useRef<HTMLDivElement>(null);
 
   // 初始化 Gemini
-  const genAI = new GoogleGenerativeAI(process.env.NEXT_PUBLIC_GEMINI_API_KEY || "");
-  const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+  // 1. 確保有讀取到環境變數
+  const apiKey = process.env.NEXT_PUBLIC_GEMINI_API_KEY || "";
+  const genAI = new GoogleGenerativeAI(apiKey);
+  
+  // 2. 修改模型名稱：改用最穩定的 'gemini-pro' 以避免 404 錯誤
+  // 如果未來想用 1.5 Flash，可嘗試 'gemini-1.5-flash-latest'
+  const model = genAI.getGenerativeModel({ model: "gemini-pro" });
 
   // 自動捲動到底部
   useEffect(() => {
@@ -28,6 +33,11 @@ export default function AIChat({ itineraryData, colors }: { itineraryData: any, 
 
   const handleSendMessage = async () => {
     if (!input.trim() || isLoading) return;
+
+    if (!apiKey) {
+      setMessages(prev => [...prev, { role: 'model', text: "錯誤：找不到 API Key，請檢查 .env.local 設定。" }]);
+      return;
+    }
 
     const userMessage = input;
     setInput('');
@@ -42,6 +52,7 @@ export default function AIChat({ itineraryData, colors }: { itineraryData: any, 
         ${JSON.stringify(itineraryData)}
         
         請根據上述行程回答使用者的問題：${userMessage}
+        請用繁體中文回答，語氣輕鬆友善。
       `;
 
       const result = await model.generateContent(prompt);
@@ -49,9 +60,15 @@ export default function AIChat({ itineraryData, colors }: { itineraryData: any, 
       const text = response.text();
 
       setMessages(prev => [...prev, { role: 'model', text }]);
-    } catch (error) {
+    } catch (error: any) {
       console.error("AI Error:", error);
-      setMessages(prev => [...prev, { role: 'model', text: "抱歉，我現在連線有點問題..." }]);
+      let errorMsg = "抱歉，我現在連線有點問題...";
+      
+      // 顯示更詳細的錯誤提示給開發者
+      if (error.message?.includes("403")) errorMsg += " (API Key 權限錯誤)";
+      if (error.message?.includes("404")) errorMsg += " (模型找不到)";
+      
+      setMessages(prev => [...prev, { role: 'model', text: errorMsg }]);
     } finally {
       setIsLoading(false);
     }
