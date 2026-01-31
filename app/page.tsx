@@ -1,11 +1,9 @@
 "use client";
 
 import React, { useState, useEffect, useMemo } from 'react';
-// 1. 引入 Bot 圖示
 import { Plane, Wallet, RefreshCw, Map as MapIcon, Book, ListChecks, Sun, Cloud, CloudRain, Check, PlusCircle, FileText, Save, Bot } from 'lucide-react';
 import { colors, itineraryData as initialItinerary, prepList, defaultExchangeRate, initialFixedExpenses, ItineraryDay, Expense, PAYERS, Spot } from './data/itinerary';
-import { SpotCard, DetailModal, DailyRouteMap, AddSpotModal, ExpenseChart } from './components/TravelComponents';
-// 2. 引入剛建立的 AIChat 組件
+import { SpotCard, DetailModal, DailyRouteMap, AddSpotModal, ExpenseChart, TravelConnector } from './components/TravelComponents';
 import AIChat from './components/AIChat';
 
 // Firebase imports
@@ -19,7 +17,6 @@ export default function UltimateOsakaApp() {
   const [selectedSpot, setSelectedSpot] = useState<any>(null);
   const [activeTab, setActiveTab] = useState('diary');
   
-
   const [walletTab, setWalletTab] = useState<'total'|'fixed'|number>('total');
   const [editingFixedExpense, setEditingFixedExpense] = useState<Expense | null>(null);
   const [editingChecklistNoteId, setEditingChecklistNoteId] = useState<string | null>(null);
@@ -74,6 +71,38 @@ export default function UltimateOsakaApp() {
 
   const currentDayData = itinerary.find(d => d.day === activeDay) || itinerary[0];
 
+  // 計算行程衝突 (時間合理性驗證)
+  const calculateScheduleConflicts = (daySpots: Spot[]) => {
+    const warnings: Record<string, string> = {};
+    for (let i = 0; i < daySpots.length - 1; i++) {
+        const current = daySpots[i];
+        const next = daySpots[i+1];
+        
+        // 取得交通時間 (若無設定，預設為 0 分鐘)
+        const travelTime = current.travelToNext?.duration || 0;
+        const stayTime = current.stayDuration || 60; // 預設停留 60 分鐘
+
+        // 解析時間 HH:MM -> 分鐘數
+        const [cH, cM] = current.time.split(':').map(Number);
+        const currentStart = cH * 60 + cM;
+        
+        const [nH, nM] = next.time.split(':').map(Number);
+        const nextStart = nH * 60 + nM;
+
+        const currentEnd = currentStart + stayTime;
+        const arrivalAtNext = currentEnd + travelTime;
+
+        if (arrivalAtNext > nextStart) {
+            const delay = arrivalAtNext - nextStart;
+            warnings[current.id] = `時間太趕！預計抵達下一站會遲到 ${delay} 分鐘 (停留${stayTime}分+交通${travelTime}分)`;
+        }
+    }
+    return warnings;
+  };
+
+  const scheduleWarnings = useMemo(() => calculateScheduleConflicts(currentDayData.spots), [currentDayData]);
+
+  // ... (保留其他 useMemo logic: allExpensesList, dayBudget, stats, filteredExpenses) ...
   const allExpensesList = useMemo(() => {
     let list: Array<Expense & { source: string, sortKey: number }> = [];
     fixedExpenses.forEach(e => list.push({ ...e, source: '固定支出', sortKey: 0 }));
@@ -120,6 +149,7 @@ export default function UltimateOsakaApp() {
     return allExpensesList.filter(e => e.sortKey === walletTab);
   }, [walletTab, allExpensesList]);
 
+
   // --- Handlers ---
 
   const handleUpdateExpenses = (spotId: string, newExpenses: Expense[]) => {
@@ -132,24 +162,23 @@ export default function UltimateOsakaApp() {
     saveToCloud({ itinerary: newItinerary });
   };
 
-  const handleUpdateGeneral = (spotId: string, newData: { time: string, title: string, address: string }) => {
+  const handleUpdateSpotDetails = (spotId: string, newDetails: any) => {
     const newItinerary = itinerary.map(day => ({
       ...day,
-      spots: day.spots.map(spot => spot.id === spotId ? { ...spot, time: newData.time, title: newData.title, address: newData.address } : spot)
+      spots: day.spots.map(spot => spot.id === spotId ? { ...spot, ...newDetails } : spot)
     }));
     setItinerary(newItinerary);
-    setSelectedSpot((prev: any) => prev ? { ...prev, time: newData.time, title: newData.title, address: newData.address } : null);
+    setSelectedSpot((prev: any) => prev ? { ...prev, ...newDetails } : null);
     saveToCloud({ itinerary: newItinerary });
   };
-  
 
-  const handleUpdateSpotDetails = (spotId: string, newDetails: string) => {
+  // 新增: 更新交通資訊
+  const handleUpdateTravelInfo = (spotId: string, travelInfo: { duration: number, mode: 'transit'|'walking' }) => {
     const newItinerary = itinerary.map(day => ({
       ...day,
-      spots: day.spots.map(spot => spot.id === spotId ? { ...spot, details: newDetails } : spot)
+      spots: day.spots.map(spot => spot.id === spotId ? { ...spot, travelToNext: travelInfo } : spot)
     }));
     setItinerary(newItinerary);
-    setSelectedSpot((prev: any) => prev ? { ...prev, details: newDetails } : null);
     saveToCloud({ itinerary: newItinerary });
   };
 
@@ -177,10 +206,23 @@ export default function UltimateOsakaApp() {
     saveToCloud({ checklistNotes: newNotes });
   };
 
-  const handleAddSpot = (newSpot: Spot) => {
+  // 修改: 新增行程時，同時更新上一站的交通資訊
+  const handleAddSpot = (newSpot: Spot, travelInfoForPrev?: any) => {
     const newItinerary = itinerary.map(day => {
       if (day.day === activeDay) {
-        const updatedSpots = [...day.spots, newSpot].sort((a, b) => a.time.localeCompare(b.time));
+        let updatedSpots = [...day.spots, newSpot].sort((a, b) => a.time.localeCompare(b.time));
+        
+        // 如果有 AI 估算的交通時間，且這是接在最後一個景點後面
+        if (travelInfoForPrev && day.spots.length > 0) {
+            // 找到時間順序上的前一個景點 (通常是剛剛傳入的 lastSpot，但也可能是插入中間)
+            // 這裡簡單處理：假設 user 是依序新增的，更新原本列表的最後一個
+            // 若要嚴謹，應該根據時間排序找到 newSpot 的前一個
+            const lastSpotIndex = updatedSpots.findIndex(s => s.id === newSpot.id) - 1;
+            if (lastSpotIndex >= 0) {
+                const prevSpot = updatedSpots[lastSpotIndex];
+                updatedSpots[lastSpotIndex] = { ...prevSpot, travelToNext: travelInfoForPrev };
+            }
+        }
         return { ...day, spots: updatedSpots };
       }
       return day;
@@ -206,7 +248,7 @@ export default function UltimateOsakaApp() {
     
     if (mode === 'spot') {
       const query = selectedSpot.address || selectedSpot.title;
-      const url = `[https://www.google.com/maps/search/?api=1&query=$](https://www.google.com/maps/search/?api=1&query=$){encodeURIComponent(query)}`;
+      const url = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(query)}`;
       window.open(url, '_blank');
     } else {
       const currentDaySpots = currentDayData.spots;
@@ -237,6 +279,7 @@ export default function UltimateOsakaApp() {
 
   return (
     <div className="min-h-screen pb-32 overflow-hidden relative" style={{ backgroundColor: colors.bg, color: colors.text }}>
+      {/* 背景花瓣動畫 (保留) */}
       <div className="fixed inset-0 pointer-events-none z-0">
         {[...Array(10)].map((_, i) => (
           <div key={i} className="absolute animate-petal-fall" style={{ left: `${Math.random()*100}%`, top: `-5%`, animationDelay: `${i*1.5}s`, opacity: 0.4 }}>
@@ -296,12 +339,26 @@ export default function UltimateOsakaApp() {
                   </div>
                 </div>
               </div>
-              <div className="space-y-8">
+              <div className="space-y-0"> {/* 修改 space-y，因為現在有 TravelConnector 佔位 */}
                 {currentDayData.spots.map((spot, i) => (
-                  <SpotCard key={i} spot={spot} colors={colors} onClick={setSelectedSpot} exchangeRate={exchangeRate} />
+                  <React.Fragment key={spot.id}>
+                    <div className="mb-8">
+                      <SpotCard spot={spot} colors={colors} onClick={setSelectedSpot} exchangeRate={exchangeRate} />
+                    </div>
+                    {/* 交通連接器：顯示到下一站的交通時間 */}
+                    {i < currentDayData.spots.length - 1 && (
+                      <TravelConnector 
+                        fromSpot={spot} 
+                        toSpot={currentDayData.spots[i+1]}
+                        onUpdateTravel={handleUpdateTravelInfo}
+                        warning={scheduleWarnings[spot.id]}
+                      />
+                    )}
+                  </React.Fragment>
                 ))}
+                
                 <div 
-                  className="border-2 border-dashed border-pink-200 rounded-[3rem] p-6 text-center opacity-50 cursor-pointer hover:opacity-100 hover:bg-pink-50 transition-all"
+                  className="border-2 border-dashed border-pink-200 rounded-[3rem] p-6 text-center opacity-50 cursor-pointer hover:opacity-100 hover:bg-pink-50 transition-all mt-4"
                   onClick={() => setIsAddSpotOpen(true)}
                 >
                   <p className="text-xs text-pink-300 tracking-widest uppercase">+ Add New Spot</p>
@@ -310,6 +367,7 @@ export default function UltimateOsakaApp() {
             </main>
           )}
 
+          {/* ... (其他 Tab: guide, wallet, currency, prep, chat 保持不變) ... */}
           {activeTab === 'guide' && (
             <div className="p-10">
               <h2 className="text-2xl font-light tracking-[0.4em] text-center mb-10 uppercase">Route</h2>
@@ -440,7 +498,6 @@ export default function UltimateOsakaApp() {
                               </button>
                             </div>
                             
-                            {/* 備註顯示與編輯區 */}
                             {(isEditing || note) && (
                               <div className="mb-3 ml-1">
                                 {isEditing ? (
@@ -492,7 +549,6 @@ export default function UltimateOsakaApp() {
             </div>
           )}
 
-          {/* 3. 新增的 AI 聊天 Tab 內容 */}
           {activeTab === 'chat' && (
             <div className="p-6 pb-32">
               <h2 className="text-2xl font-light tracking-[0.4em] text-center mb-8 uppercase">AI Guide</h2>
@@ -510,14 +566,18 @@ export default function UltimateOsakaApp() {
           onNav={handleNavigation} 
           onUpdateExpenses={handleUpdateExpenses}
           onUpdateDetails={handleUpdateSpotDetails}
-          onUpdateGeneral={handleUpdateGeneral}
+          onUpdateGeneral={handleUpdateSpotDetails}
           onDeleteSpot={handleDeleteSpot}
           exchangeRate={exchangeRate}
         />
       )}
 
       {isAddSpotOpen && (
-        <AddSpotModal onClose={() => setIsAddSpotOpen(false)} onSave={handleAddSpot} />
+        <AddSpotModal 
+          onClose={() => setIsAddSpotOpen(false)} 
+          onSave={handleAddSpot} 
+          lastSpot={currentDayData.spots[currentDayData.spots.length - 1]}
+        />
       )}
 
       {editingFixedExpense && (

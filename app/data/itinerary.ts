@@ -10,14 +10,21 @@ export interface Expense {
   payer: string;
 }
 
+// 新增: 交通資訊介面
+export interface TravelInfo {
+  duration: number; // 分鐘
+  mode: 'transit' | 'walking';
+}
+
 export interface Spot {
   id: string;
   time: string;
-  title: string;     // 用於顯示 (例如: "一蘭拉麵")
-  address?: string;  // 用於定位 (例如: "大阪市中央區...")
+  title: string;
+  address?: string;
   tag: string;
   details: string;
-  stayDuration?: number; // ★★★ 修正點：新增這行，定義停留時間 ★★★
+  stayDuration?: number; // 停留時間 (分鐘)
+  travelToNext?: TravelInfo; // 新增: 到下一站的交通資訊
   access: string;
   mapUrl: string;
   prevSpotName: string;
@@ -52,13 +59,13 @@ export const colors = {
 
 export const defaultExchangeRate = 0.215;
 
-// 固定支出 (機票/住宿)
 export const initialFixedExpenses: Expense[] = [
   { id: 'f1', item: '星宇航空機票 (TPE-UKB/KIX-TPE)', amount: 12000, currency: 'TWD', payer: 'YenLin' },
   { id: 'f2', item: '大阪難波大和ROYNET飯店 (7晚)', amount: 120000, currency: 'JPY', payer: 'Dad' },
   { id: 'f3', item: '日本 eSIM 網卡 (8天吃到飽)', amount: 600, currency: 'TWD', payer: 'Sister' }
 ];
 
+// 初始化資料：幫既有行程補上一些 travelToNext 範例
 export const itineraryData: ItineraryDay[] = [
   {
     day: 1, date: "04.11", area: "海之啟程：神戶灣與大阪燈火",
@@ -70,7 +77,8 @@ export const itineraryData: ItineraryDay[] = [
         id: 'd1-s1',
         time: "10:30", title: "神戶機場 (UKB)", tag: "交通",
         details: "【歷史背景】這座填海而成的機場體現了日本精密的工程美學。3樓的展望台可看見明石海峽大橋。",
-        stayDuration: 60, // 補上預設停留時間
+        stayDuration: 60,
+        travelToNext: { duration: 90, mode: 'transit' }, // 範例交通時間
         access: "起始點：神戶機場",
         mapUrl: "https://www.google.com/maps/search/?api=1&query=神戶機場",
         prevSpotName: "起始點",
@@ -83,7 +91,7 @@ export const itineraryData: ItineraryDay[] = [
         id: 'd1-s2',
         time: "15:00", title: "心齋橋筋商店街", tag: "生活",
         details: "【故事】自江戶時期就是大阪的物資動脈。抬頭看巨大的廣告看板，那種喧囂與美學的衝突，就是大阪的靈魂。",
-        stayDuration: 120, // 補上預設停留時間
+        stayDuration: 120,
         access: "難波站出口步行 5 分鐘。",
         mapUrl: "https://www.google.com/maps/search/?api=1&query=心齋橋筋商店街",
         prevSpotName: "神戶機場",
@@ -107,6 +115,7 @@ export const itineraryData: ItineraryDay[] = [
         time: "09:30", title: "清水寺", tag: "史蹟",
         details: "【歷史】建於778年，全木造結構不見一根釘子。春末時分，滿山翠綠襯托著櫻色，是極致的莫蘭迪配色。",
         stayDuration: 120,
+        travelToNext: { duration: 20, mode: 'walking' },
         access: "淀屋橋搭乘京阪電車特急至清水五條。",
         mapUrl: "https://www.google.com/maps/search/?api=1&query=清水寺",
         prevSpotName: "大阪飯店",
@@ -245,6 +254,7 @@ export const itineraryData: ItineraryDay[] = [
         time: "10:00", title: "臨空城 Outlet", tag: "購物", 
         details: "離日前最後補貨的最佳處。就在大海旁邊。", 
         stayDuration: 180,
+        travelToNext: { duration: 30, mode: 'transit' },
         access: "JR 關空快速至臨空城。", 
         mapUrl: "https://www.google.com/maps/search/?api=1&query=臨空城Outlet",
         prevSpotName: "大阪飯店",
