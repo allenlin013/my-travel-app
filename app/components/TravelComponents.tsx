@@ -99,8 +99,12 @@ export const DailyRouteMap = ({ dayData, colors }: any) => {
 
 // --- 3. 詳情彈窗 ---
 export const DetailModal = ({ spot, onClose, onNav, onUpdateExpenses, onUpdateDetails, onDeleteSpot, colors, exchangeRate }: any) => {
+  const [time, setTime] = useState(spot.time);
+  const [title, setTitle] = useState(spot.title);
+  const [address, setAddress] = useState(spot.address || '');
   const [expenses, setExpenses] = useState<Expense[]>(spot.expenses);
   const [isEditingDetails, setIsEditingDetails] = useState(false);
+  const [isEditingGeneral, setIsEditingGeneral] = useState(false);
   const [details, setDetails] = useState(spot.details);
 
   const handleUpdateItem = (idx: number, field: keyof Expense, value: any) => {
@@ -134,6 +138,14 @@ export const DetailModal = ({ spot, onClose, onNav, onUpdateExpenses, onUpdateDe
     setIsEditingDetails(false);
   };
 
+  const handleSaveGeneral = () => {
+    onUpdateGeneral(spot.id, {
+      time: time,
+      title: title,
+      address: address
+    });
+  }
+
   return (
     <div className="fixed inset-0 z-[100] flex items-end justify-center bg-black/10 backdrop-blur-sm animate-in fade-in duration-300">
       <div className="bg-white w-full max-w-md rounded-t-[4.5rem] p-10 shadow-2xl animate-in slide-in-from-bottom duration-500 overflow-y-auto max-h-[90vh]">
@@ -159,6 +171,45 @@ export const DetailModal = ({ spot, onClose, onNav, onUpdateExpenses, onUpdateDe
               <h4 className="text-[10px] uppercase tracking-[0.2em] flex items-center gap-2" style={{ color: colors.accent }}>
                 <Info size={14}/> 介紹 / 備註
               </h4>
+                            
+              <div className="flex justify-between items-center mb-4">
+              <h4 className="text-[10px] uppercase tracking-[0.2em] flex items-center gap-2" style={{ color: colors.accent }}>
+                <Info size={14}/> 基本資訊
+              </h4>
+              {!isEditingGeneral ? (
+                <button onClick={() => setIsEditingGeneral(true)} className="text-slate-300 hover:text-slate-500">
+                  <Edit3 size={14}/>
+                </button>
+              ) : (
+                <button onClick={handleSaveGeneral} className="text-[10px] bg-slate-800 text-white px-3 py-1 rounded-full">
+                  完成
+                </button>
+              )}
+            </div>
+            
+            {isEditingGeneral ? (
+              <div className="flex flex-col gap-2">
+                <input
+                  type="text"
+                  className="w-full bg-slate-50 p-4 rounded-2xl text-sm leading-loose outline-none text-slate-600"
+                  value={time}
+                  onChange={(e) => setTime(e.target.value)}
+                />
+                <input
+                  type="text"
+                  className="w-full bg-slate-50 p-4 rounded-2xl text-sm leading-loose outline-none text-slate-600"
+                  value={title}
+                  onChange={(e) => setTitle(e.target.value)}
+                />
+                <input
+                  type="text"
+                  className="w-full bg-slate-50 p-4 rounded-2xl text-sm leading-loose outline-none text-slate-600"
+                  value={address}
+                  onChange={(e) => setAddress(e.target.value)}
+                />
+              </div>
+            ) : null}
+
               {!isEditingDetails ? (
                 <button onClick={() => setIsEditingDetails(true)} className="text-slate-300 hover:text-slate-500">
                   <Edit3 size={14}/>
@@ -278,6 +329,7 @@ export const DetailModal = ({ spot, onClose, onNav, onUpdateExpenses, onUpdateDe
     </div>
   );
 };
+
 
 // --- 4. 新增行程 Modal ---
 export const AddSpotModal = ({ onClose, onSave }: any) => {
@@ -428,6 +480,7 @@ export const AddSpotModal = ({ onClose, onSave }: any) => {
     </div>
   );
 };
+
 
 // --- 5. 莫蘭迪配色圓環圖表 ---
 export const ExpenseChart = ({ payerStats, exchangeRate }: any) => {

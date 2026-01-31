@@ -19,6 +19,7 @@ export default function UltimateOsakaApp() {
   const [selectedSpot, setSelectedSpot] = useState<any>(null);
   const [activeTab, setActiveTab] = useState('diary');
   
+
   const [walletTab, setWalletTab] = useState<'total'|'fixed'|number>('total');
   const [editingFixedExpense, setEditingFixedExpense] = useState<Expense | null>(null);
   const [editingChecklistNoteId, setEditingChecklistNoteId] = useState<string | null>(null);
@@ -130,6 +131,17 @@ export default function UltimateOsakaApp() {
     setSelectedSpot((prev: any) => prev ? { ...prev, expenses: newExpenses } : null);
     saveToCloud({ itinerary: newItinerary });
   };
+
+  const handleUpdateGeneral = (spotId: string, newData: { time: string, title: string, address: string }) => {
+    const newItinerary = itinerary.map(day => ({
+      ...day,
+      spots: day.spots.map(spot => spot.id === spotId ? { ...spot, time: newData.time, title: newData.title, address: newData.address } : spot)
+    }));
+    setItinerary(newItinerary);
+    setSelectedSpot((prev: any) => prev ? { ...prev, time: newData.time, title: newData.title, address: newData.address } : null);
+    saveToCloud({ itinerary: newItinerary });
+  };
+  
 
   const handleUpdateSpotDetails = (spotId: string, newDetails: string) => {
     const newItinerary = itinerary.map(day => ({
@@ -498,6 +510,7 @@ export default function UltimateOsakaApp() {
           onNav={handleNavigation} 
           onUpdateExpenses={handleUpdateExpenses}
           onUpdateDetails={handleUpdateSpotDetails}
+          onUpdateGeneral={handleUpdateGeneral}
           onDeleteSpot={handleDeleteSpot}
           exchangeRate={exchangeRate}
         />
