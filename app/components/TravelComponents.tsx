@@ -1,9 +1,13 @@
 // app/components/TravelComponents.tsx
 import React, { useState, useMemo } from 'react';
-import { Train, Info, Utensils, Navigation2, MapPin, X, ExternalLink, Save, Wallet, Plus, Trash2, Map, Tag, Clock, DollarSign, PieChart, Edit3 } from 'lucide-react';
+import { Train, Info, Utensils, Navigation2, MapPin, X, ExternalLink, Save, Wallet, Plus, Trash2, Map, Tag, Clock, DollarSign, PieChart, Edit3, Sparkles, AlertTriangle } from 'lucide-react';
 import { PAYERS, Expense, Spot } from '../data/itinerary';
+import { GoogleGenerativeAI } from "@google/generative-ai";
 
 const formatNum = (amount: number) => new Intl.NumberFormat('en-US', { maximumFractionDigits: 0 }).format(amount);
+
+// 時間格式驗證 (HH:MM) - 00:00 到 23:59
+const isValidTime = (time: string) => /^([01]?[0-9]|2[0-3]):[0-5][0-9]$/.test(time);
 
 // --- 1. 景點卡片 ---
 export const SpotCard = ({ spot, onClick, colors, exchangeRate }: any) => {
@@ -33,13 +37,11 @@ export const SpotCard = ({ spot, onClick, colors, exchangeRate }: any) => {
 
       <div className="mb-2">
         <h3 className="text-lg font-normal leading-tight text-slate-800">{spot.title}</h3>
-        {/* 顯示地名下方的簡介 */}
         <p className="text-xs font-light text-slate-500 mt-2 line-clamp-2 leading-relaxed opacity-80 pr-2">
           {spot.details}
         </p>
       </div>
       
-      {/* 花費在右下角 */}
       <div className="flex justify-end mt-3">
         <div className="flex flex-col items-end bg-slate-50 px-4 py-2 rounded-2xl">
           <div className="flex items-baseline gap-1">
@@ -101,6 +103,7 @@ export const DetailModal = ({ spot, onClose, onNav, onUpdateExpenses, onUpdateDe
   const [time, setTime] = useState(spot.time);
   const [title, setTitle] = useState(spot.title);
   const [address, setAddress] = useState(spot.address || '');
+  const [stayDuration, setStayDuration] = useState(spot.stayDuration || 60);
   const [expenses, setExpenses] = useState<Expense[]>(spot.expenses);
   const [isEditingDetails, setIsEditingDetails] = useState(false);
   const [isEditingGeneral, setIsEditingGeneral] = useState(false);
@@ -138,11 +141,16 @@ export const DetailModal = ({ spot, onClose, onNav, onUpdateExpenses, onUpdateDe
   };
 
   const handleSaveGeneral = () => {
+    if (!isValidTime(time)) {
+      alert("時間格式錯誤！請使用 HH:MM 格式 (00:00 - 23:59)。");
+      return;
+    }
     if (onUpdateGeneral) {
         onUpdateGeneral(spot.id, {
             time: time,
             title: title,
-            address: address
+            address: address,
+            stayDuration: Number(stayDuration)
         });
     }
   }
@@ -166,7 +174,6 @@ export const DetailModal = ({ spot, onClose, onNav, onUpdateExpenses, onUpdateDe
 
         <div className="space-y-8">
           
-          {/* --- 修復的 Basic Info 區塊 --- */}
           <section>
             <div className="flex justify-between items-center mb-4">
               <h4 className="text-[10px] uppercase tracking-[0.2em] flex items-center gap-2" style={{ color: colors.accent }}>
@@ -186,31 +193,45 @@ export const DetailModal = ({ spot, onClose, onNav, onUpdateExpenses, onUpdateDe
             
             {isEditingGeneral && (
               <div className="flex flex-col gap-2">
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    className="w-1/3 bg-slate-50 p-4 rounded-2xl text-sm outline-none text-slate-600"
+                    value={time}
+                    onChange={(e) => setTime(e.target.value)}
+                    placeholder="時間 (HH:MM)"
+                  />
+                  <input
+                    type="number"
+                    className="w-2/3 bg-slate-50 p-4 rounded-2xl text-sm outline-none text-slate-600"
+                    value={stayDuration}
+                    onChange={(e) => setStayDuration(e.target.value)}
+                    placeholder="停留分鐘"
+                  />
+                </div>
                 <input
                   type="text"
-                  className="w-full bg-slate-50 p-4 rounded-2xl text-sm leading-loose outline-none text-slate-600"
-                  value={time}
-                  onChange={(e) => setTime(e.target.value)}
-                  placeholder="時間"
-                />
-                <input
-                  type="text"
-                  className="w-full bg-slate-50 p-4 rounded-2xl text-sm leading-loose outline-none text-slate-600"
+                  className="w-full bg-slate-50 p-4 rounded-2xl text-sm outline-none text-slate-600"
                   value={title}
                   onChange={(e) => setTitle(e.target.value)}
                   placeholder="地點名稱"
                 />
                 <input
                   type="text"
-                  className="w-full bg-slate-50 p-4 rounded-2xl text-sm leading-loose outline-none text-slate-600"
+                  className="w-full bg-slate-50 p-4 rounded-2xl text-sm outline-none text-slate-600"
                   value={address}
                   onChange={(e) => setAddress(e.target.value)}
                   placeholder="地址"
                 />
               </div>
             )}
+            {!isEditingGeneral && (
+               <div className="flex gap-4 text-xs text-slate-500 pl-1">
+                 <span className="flex items-center gap-1"><Clock size={12}/> {spot.time}</span>
+                 <span className="flex items-center gap-1"><Clock size={12}/> 預計停留 {spot.stayDuration || 60} 分鐘</span>
+               </div>
+            )}
           </section>
-          {/* --- 修復結束 --- */}
 
           <section>
              <div className="flex justify-between items-center mb-4">
@@ -338,24 +359,98 @@ export const DetailModal = ({ spot, onClose, onNav, onUpdateExpenses, onUpdateDe
   );
 };
 
-// --- 4. 新增行程 Modal ---
-export const AddSpotModal = ({ onClose, onSave }: any) => {
+// --- 4. 新增行程 Modal (加入 AI 交通估算與驗證) ---
+export const AddSpotModal = ({ onClose, onSave, lastSpot }: any) => {
   const [formData, setFormData] = useState({
     time: '',
     title: '',
     address: '',
     tag: 'Shopping',
     details: '',
+    stayDuration: 60,
     cost: 0,
     currency: 'JPY',
     payer: PAYERS[0]
   });
+  
+  const [isValidating, setIsValidating] = useState(false);
+  const [validationMsg, setValidationMsg] = useState<{type: 'info'|'warn'|'error', text: string} | null>(null);
+
+  // 初始化 Gemini
+  const apiKey = process.env.NEXT_PUBLIC_GEMINI_API_KEY || "";
+  const genAI = new GoogleGenerativeAI(apiKey);
+  const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+
+  const handleCheckSchedule = async () => {
+    if (!formData.time || !formData.title) return;
+    if (!isValidTime(formData.time)) {
+      setValidationMsg({ type: 'error', text: '時間格式錯誤！(請輸入 HH:MM)' });
+      return;
+    }
+    if (!lastSpot) {
+      setValidationMsg({ type: 'info', text: '這是今天的第一個行程，無法計算交通時間。' });
+      return;
+    }
+
+    setIsValidating(true);
+    setValidationMsg({ type: 'info', text: '正在利用 AI 估算交通時間與驗證行程...' });
+
+    try {
+      const origin = lastSpot.address || lastSpot.title;
+      const dest = formData.address || formData.title;
+      
+      const prompt = `
+        假設你在日本旅遊。
+        請估算從「${origin}」到「${dest}」的大眾運輸交通時間（分鐘）。
+        直接回傳一個數字即可（例如：45）。不要回傳任何文字。
+        如果無法估算，請回傳 60。
+      `;
+      
+      const result = await model.generateContent(prompt);
+      const text = result.response.text();
+      const travelTime = parseInt(text.match(/\d+/)?.[0] || '60', 10);
+
+      // 計算時間
+      const [lastH, lastM] = lastSpot.time.split(':').map(Number);
+      const lastTimeMinutes = lastH * 60 + lastM;
+      const prevEndTime = lastTimeMinutes + (Number(lastSpot.stayDuration) || 60); // 上一站結束時間
+      
+      const [newH, newM] = formData.time.split(':').map(Number);
+      const newTimeMinutes = newH * 60 + newM; // 這一站開始時間
+
+      const arrivalTimeWithTravel = prevEndTime + travelTime;
+
+      if (newTimeMinutes < arrivalTimeWithTravel) {
+        const diff = arrivalTimeWithTravel - newTimeMinutes;
+        setValidationMsg({ 
+          type: 'warn', 
+          text: `警告：時間太趕了！AI 估算交通約需 ${travelTime} 分鐘。建議安排在 ${Math.floor(arrivalTimeWithTravel/60).toString().padStart(2,'0')}:${(arrivalTimeWithTravel%60).toString().padStart(2,'0')} 之後（晚 ${diff} 分鐘）。` 
+        });
+      } else {
+        setValidationMsg({ 
+          type: 'info', 
+          text: `時間合理。AI 估算交通約需 ${travelTime} 分鐘，您有充裕的時間移動。` 
+        });
+      }
+
+    } catch (e) {
+      console.error(e);
+      setValidationMsg({ type: 'error', text: 'AI 連線失敗，無法驗證交通時間。' });
+    } finally {
+      setIsValidating(false);
+    }
+  };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!formData.title) return;
+    
+    // 基本格式驗證
+    if (!isValidTime(formData.time)) {
+        alert("時間格式錯誤 (例如 10:66)，請修正為 HH:MM 格式 (00:00 - 23:59)");
+        return;
+    }
 
-    // 優先使用地址來搜尋
     const query = formData.address || formData.title;
     const mapUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(query)}`;
     
@@ -363,9 +458,10 @@ export const AddSpotModal = ({ onClose, onSave }: any) => {
       id: Date.now().toString(),
       time: formData.time || "12:00",
       title: formData.title,
-      address: formData.address, // 儲存地址
+      address: formData.address, 
       tag: formData.tag,
       details: formData.details || "手動新增的行程",
+      stayDuration: Number(formData.stayDuration) || 60,
       access: "自訂行程",
       mapUrl: mapUrl,
       prevSpotName: "上一個景點",
@@ -383,7 +479,7 @@ export const AddSpotModal = ({ onClose, onSave }: any) => {
 
   return (
     <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/40 backdrop-blur-md p-6 animate-in fade-in zoom-in-95 duration-300">
-      <div className="bg-white w-full max-w-sm rounded-[2.5rem] p-8 shadow-2xl">
+      <div className="bg-white w-full max-w-sm rounded-[2.5rem] p-8 shadow-2xl overflow-y-auto max-h-[90vh]">
         <div className="flex justify-between items-center mb-6">
           <h3 className="text-xl font-light tracking-wide">新增行程</h3>
           <button onClick={onClose} className="p-2 bg-slate-50 rounded-full text-slate-400"><X size={20}/></button>
@@ -415,6 +511,18 @@ export const AddSpotModal = ({ onClose, onSave }: any) => {
             </div>
           </div>
 
+          {/* 新增: 停留時間輸入 */}
+          <div className="space-y-1">
+             <label className="text-[10px] uppercase tracking-wider text-slate-400 pl-2"><Clock size={10} className="inline mr-1"/>預計停留 (分鐘)</label>
+             <input 
+                type="number"
+                className="w-full bg-slate-50 p-4 rounded-2xl outline-none text-sm" 
+                placeholder="60" 
+                value={formData.stayDuration}
+                onChange={e => setFormData({...formData, stayDuration: Number(e.target.value)})}
+              />
+          </div>
+
           <div className="space-y-1">
             <label className="text-[10px] uppercase tracking-wider text-slate-400 pl-2"><Map size={10} className="inline mr-1"/>地點名稱</label>
             <input 
@@ -435,6 +543,32 @@ export const AddSpotModal = ({ onClose, onSave }: any) => {
               onChange={e => setFormData({...formData, address: e.target.value})}
             />
           </div>
+
+          {/* 新增: AI 交通驗證按鈕 */}
+          {lastSpot && (
+            <div className="bg-blue-50 p-4 rounded-2xl border border-blue-100">
+               <div className="flex justify-between items-center mb-2">
+                 <span className="text-[10px] font-bold text-blue-400 flex items-center gap-1"><Sparkles size={12}/> AI 行程檢查</span>
+                 <button 
+                   type="button" 
+                   onClick={handleCheckSchedule}
+                   disabled={isValidating}
+                   className="text-[10px] bg-white px-2 py-1 rounded-full border border-blue-200 text-blue-500 hover:bg-blue-100 disabled:opacity-50"
+                 >
+                   {isValidating ? "計算中..." : "檢查時間合理性"}
+                 </button>
+               </div>
+               {validationMsg && (
+                 <div className={`text-[10px] p-2 rounded-lg flex items-start gap-2 ${
+                   validationMsg.type === 'error' ? 'bg-red-100 text-red-600' : 
+                   validationMsg.type === 'warn' ? 'bg-yellow-50 text-yellow-700' : 'bg-green-100 text-green-700'
+                 }`}>
+                   {validationMsg.type === 'warn' && <AlertTriangle size={12} className="mt-0.5 flex-shrink-0"/>}
+                   {validationMsg.text}
+                 </div>
+               )}
+            </div>
+          )}
 
           <div className="space-y-1">
             <label className="text-[10px] uppercase tracking-wider text-slate-400 pl-2"><Info size={10} className="inline mr-1"/>備註</label>
