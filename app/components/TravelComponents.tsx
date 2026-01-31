@@ -98,7 +98,7 @@ export const DailyRouteMap = ({ dayData, colors }: any) => {
 };
 
 // --- 3. 詳情彈窗 ---
-export const DetailModal = ({ spot, onClose, onNav, onUpdateExpenses, onUpdateDetails, onDeleteSpot, colors, exchangeRate }: any) => {
+export const DetailModal = ({ spot, onClose, onNav, onUpdateExpenses, onUpdateDetails, onDeleteSpot, colors, exchangeRate, onUpdateGeneral }: any) => {
   const [time, setTime] = useState(spot.time);
   const [title, setTitle] = useState(spot.title);
   const [address, setAddress] = useState(spot.address || '');
@@ -113,6 +113,7 @@ export const DetailModal = ({ spot, onClose, onNav, onUpdateExpenses, onUpdateDe
     setExpenses(newExpenses);
   };
 
+  
   const handleAddItem = () => {
     const newExp: Expense = {
       id: Date.now().toString(),
@@ -211,7 +212,7 @@ export const DetailModal = ({ spot, onClose, onNav, onUpdateExpenses, onUpdateDe
                 />
               </div>
             ) : null}
-            
+
 
               {!isEditingDetails ? (
                 <button onClick={() => setIsEditingDetails(true)} className="text-slate-300 hover:text-slate-500">
