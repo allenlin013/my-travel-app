@@ -14,9 +14,10 @@ export interface Spot {
   id: string;
   time: string;
   title: string;     // 用於顯示 (例如: "一蘭拉麵")
-  address?: string;  // 新增: 用於定位 (例如: "大阪市中央區...")
+  address?: string;  // 用於定位 (例如: "大阪市中央區...")
   tag: string;
   details: string;
+  stayDuration?: number; // ★★★ 修正點：新增這行，定義停留時間 ★★★
   access: string;
   mapUrl: string;
   prevSpotName: string;
@@ -69,6 +70,7 @@ export const itineraryData: ItineraryDay[] = [
         id: 'd1-s1',
         time: "10:30", title: "神戶機場 (UKB)", tag: "交通",
         details: "【歷史背景】這座填海而成的機場體現了日本精密的工程美學。3樓的展望台可看見明石海峽大橋。",
+        stayDuration: 60, // 補上預設停留時間
         access: "起始點：神戶機場",
         mapUrl: "https://www.google.com/maps/search/?api=1&query=神戶機場",
         prevSpotName: "起始點",
@@ -81,6 +83,7 @@ export const itineraryData: ItineraryDay[] = [
         id: 'd1-s2',
         time: "15:00", title: "心齋橋筋商店街", tag: "生活",
         details: "【故事】自江戶時期就是大阪的物資動脈。抬頭看巨大的廣告看板，那種喧囂與美學的衝突，就是大阪的靈魂。",
+        stayDuration: 120, // 補上預設停留時間
         access: "難波站出口步行 5 分鐘。",
         mapUrl: "https://www.google.com/maps/search/?api=1&query=心齋橋筋商店街",
         prevSpotName: "神戶機場",
@@ -103,6 +106,7 @@ export const itineraryData: ItineraryDay[] = [
         id: 'd2-s1',
         time: "09:30", title: "清水寺", tag: "史蹟",
         details: "【歷史】建於778年，全木造結構不見一根釘子。春末時分，滿山翠綠襯托著櫻色，是極致的莫蘭迪配色。",
+        stayDuration: 120,
         access: "淀屋橋搭乘京阪電車特急至清水五條。",
         mapUrl: "https://www.google.com/maps/search/?api=1&query=清水寺",
         prevSpotName: "大阪飯店",
@@ -115,6 +119,7 @@ export const itineraryData: ItineraryDay[] = [
         id: 'd2-s2',
         time: "15:00", title: "花見小路", tag: "文化",
         details: "【故事】藝伎出沒的迷宮。千本格子的木窗後，隱藏著京都最尊貴的茶屋文化。",
+        stayDuration: 90,
         access: "清水寺步行 15 分鐘。",
         mapUrl: "https://www.google.com/maps/search/?api=1&query=花見小路",
         prevSpotName: "清水寺",
@@ -135,6 +140,7 @@ export const itineraryData: ItineraryDay[] = [
         id: 'd3-s1',
         time: "08:30", title: "日本環球影城", tag: "樂園", 
         details: "超級任天堂世界必衝。下午5點後哈利波特區燈光漸起，魔幻感十足。", 
+        stayDuration: 600,
         access: "JR 櫻島線直達。", 
         mapUrl: "https://www.google.com/maps/search/?api=1&query=日本環球影城",
         prevSpotName: "大阪飯店",
@@ -154,6 +160,7 @@ export const itineraryData: ItineraryDay[] = [
         id: 'd4-s1',
         time: "10:00", title: "奈良公園", tag: "自然", 
         details: "1,200隻鹿在櫻花樹下漫步。請買份鹿仙貝，優雅地與牠們共舞。", 
+        stayDuration: 180,
         access: "近鐵奈良線特急直達。", 
         mapUrl: "https://www.google.com/maps/search/?api=1&query=奈良公園",
         prevSpotName: "大阪飯店",
@@ -174,6 +181,7 @@ export const itineraryData: ItineraryDay[] = [
         id: 'd5-s1',
         time: "10:30", title: "大阪城天守閣", tag: "史蹟", 
         details: "金色的脊樑與莫蘭迪綠的瓦片相映成趣。推薦西之丸庭園。", 
+        stayDuration: 120,
         access: "JR 環狀線至大阪城公園站。", 
         mapUrl: "https://www.google.com/maps/search/?api=1&query=大阪城天守閣",
         prevSpotName: "大阪飯店",
@@ -194,6 +202,7 @@ export const itineraryData: ItineraryDay[] = [
         id: 'd6-s1',
         time: "11:00", title: "梅田藍天大廈", tag: "現代", 
         details: "兩座塔樓在空中相連，形成壯闊的環型展望台。", 
+        stayDuration: 90,
         access: "大阪站步行10分鐘。", 
         mapUrl: "https://www.google.com/maps/search/?api=1&query=梅田藍天大廈",
         prevSpotName: "大阪飯店",
@@ -214,6 +223,7 @@ export const itineraryData: ItineraryDay[] = [
         id: 'd7-s1',
         time: "10:30", title: "通天閣", tag: "懷舊", 
         details: "二戰後重建的鐵塔，象徵大阪的精神復興。", 
+        stayDuration: 120,
         access: "地下鐵惠美須町站。", 
         mapUrl: "https://www.google.com/maps/search/?api=1&query=通天閣",
         prevSpotName: "大阪飯店",
@@ -234,6 +244,7 @@ export const itineraryData: ItineraryDay[] = [
         id: 'd8-s1',
         time: "10:00", title: "臨空城 Outlet", tag: "購物", 
         details: "離日前最後補貨的最佳處。就在大海旁邊。", 
+        stayDuration: 180,
         access: "JR 關空快速至臨空城。", 
         mapUrl: "https://www.google.com/maps/search/?api=1&query=臨空城Outlet",
         prevSpotName: "大阪飯店",
@@ -245,6 +256,7 @@ export const itineraryData: ItineraryDay[] = [
         id: 'd8-s2',
         time: "13:10", title: "關西國際機場", tag: "飛行", 
         details: "華航 CI 157 返家。建議提早2.5小時到場。", 
+        stayDuration: 120,
         access: "臨空城搭電車 1 站即達。", 
         mapUrl: "https://www.google.com/maps/search/?api=1&query=關西國際機場",
         prevSpotName: "臨空城Outlet",
