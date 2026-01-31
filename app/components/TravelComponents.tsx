@@ -8,10 +8,9 @@ const formatNum = (amount: number) => new Intl.NumberFormat('en-US', { maximumFr
 // 時間格式驗證 (HH:MM)
 const isValidTime = (time: string) => /^([01]?[0-9]|2[0-3]):[0-5][0-9]$/.test(time);
 
-// 如果您有 API Key，這個函式可以用；如果沒有，它會優雅地失敗並回傳 null
+// 呼叫 API Route 查詢 Google Maps (若無 Key 則回傳 null)
 const fetchRouteTime = async (origin: string, dest: string, mode: 'transit' | 'walking') => {
   try {
-    // 檢查是否有設定 API Key，沒有就直接略過 (不報錯)
     if (!process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY) return null;
 
     const res = await fetch('/api/route', {
@@ -23,7 +22,6 @@ const fetchRouteTime = async (origin: string, dest: string, mode: 'transit' | 'w
     if (data.duration) return data.duration;
     return null;
   } catch (e) {
-    // 靜默失敗，改由使用者手動輸入
     return null;
   }
 };
@@ -35,20 +33,14 @@ export const TravelConnector = ({ fromSpot, toSpot, onUpdateTravel, warning }: a
   const [mode, setMode] = useState<'transit'|'walking'>(fromSpot.travelToNext?.mode || 'transit');
   const [isLoading, setIsLoading] = useState(false);
 
-  // 切換模式時，嘗試抓取時間，如果沒有 API Key 則保持原狀讓使用者輸入
   const handleModeChange = async (newMode: 'transit' | 'walking') => {
     setMode(newMode);
-    
-    // 如果有設定 API Key 才嘗試自動計算
     if (process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY) {
         setIsLoading(true);
         const origin = fromSpot.address || fromSpot.title;
         const dest = toSpot.address || toSpot.title;
         const newDuration = await fetchRouteTime(origin, dest, newMode);
-        
-        if (newDuration !== null) {
-          setDuration(newDuration);
-        }
+        if (newDuration !== null) setDuration(newDuration);
         setIsLoading(false);
     }
   };
@@ -58,15 +50,12 @@ export const TravelConnector = ({ fromSpot, toSpot, onUpdateTravel, warning }: a
     setIsEditing(false);
   };
 
-  // 如果沒有設定交通資訊且不在編輯模式，就不顯示 (除非有警告)
   if (!fromSpot.travelToNext && !isEditing && !warning) return null;
 
   return (
     <div className="relative flex justify-center py-4 -my-4 z-0 group">
-      {/* 虛線連接線 */}
       <div className="absolute left-1/2 top-0 bottom-0 w-0.5 border-l-2 border-dashed border-slate-200 -translate-x-1/2"></div>
       
-      {/* 警告氣泡 (時間衝突時顯示) */}
       {warning && (
         <div className="absolute left-[60%] top-1/2 -translate-y-1/2 w-48 bg-red-50 border border-red-100 p-2 rounded-xl shadow-sm z-20 flex items-start gap-2">
            <AlertTriangle size={14} className="text-red-400 flex-shrink-0 mt-0.5"/>
@@ -132,7 +121,7 @@ export const TravelConnector = ({ fromSpot, toSpot, onUpdateTravel, warning }: a
   );
 };
 
-// --- 1. 景點卡片 (未修改) ---
+// --- 1. 景點卡片 ---
 export const SpotCard = ({ spot, onClick, colors, exchangeRate }: any) => {
   const totalJPY = spot.expenses
     .filter((e: Expense) => e.currency === 'JPY')
@@ -182,7 +171,7 @@ export const SpotCard = ({ spot, onClick, colors, exchangeRate }: any) => {
   );
 };
 
-// --- 2. 每日路線圖 (未修改) ---
+// --- 2. 每日路線圖 ---
 export const DailyRouteMap = ({ dayData, colors }: any) => {
   if (!dayData || !dayData.spots || dayData.spots.length === 0) return null;
 
@@ -221,7 +210,7 @@ export const DailyRouteMap = ({ dayData, colors }: any) => {
   );
 };
 
-// --- 3. 詳情彈窗 (未修改) ---
+// --- 3. 詳情彈窗 ---
 export const DetailModal = ({ spot, onClose, onNav, onUpdateExpenses, onUpdateDetails, onDeleteSpot, colors, exchangeRate, onUpdateGeneral }: any) => {
   const [time, setTime] = useState(spot.time);
   const [title, setTitle] = useState(spot.title);
@@ -594,7 +583,6 @@ export const AddSpotModal = ({ onClose, onSave, lastSpot }: any) => {
       }] : []
     };
 
-    // 如果有查到時間就用查到的，否則預設 undefined 讓父層不用處理
     const travelInfo = googleTravelTime ? { duration: googleTravelTime, mode: 'transit' } : undefined;
     onSave(newSpot, travelInfo);
   };
@@ -665,7 +653,6 @@ export const AddSpotModal = ({ onClose, onSave, lastSpot }: any) => {
             />
           </div>
 
-          {/* 檢查按鈕：不依賴 API Key 也能顯示基本邏輯檢查 */}
           {lastSpot && (
             <div className="bg-blue-50 p-4 rounded-2xl border border-blue-100">
                <div className="flex justify-between items-center mb-2">
@@ -743,4 +730,63 @@ export const AddSpotModal = ({ onClose, onSave, lastSpot }: any) => {
   );
 };
 
-// ... ExpenseChart ...
+// --- 5. 莫蘭迪配色圓環圖表 (這就是之前遺失的組件) ---
+export const ExpenseChart = ({ payerStats, exchangeRate }: any) => {
+  const colors: Record<string, string> = {
+    "YenLin": "#D4A5A5", 
+    "CC": "#8E9EAB",     
+    "Fu": "#A7B49E",     
+    "Wen": "#D4C5A8",    
+    "Dad": "#8D9399",    
+    "Sister": "#C5B49E"  
+  };
+
+  const data = PAYERS.map(p => {
+    const stats = payerStats[p] || { jpy: 0, twd: 0 };
+    const totalTWD = stats.twd + (stats.jpy * exchangeRate);
+    return { name: p, value: totalTWD, color: colors[p] || "#CBD5E1" };
+  }).filter(d => d.value > 0);
+
+  const totalValue = data.reduce((acc, cur) => acc + cur.value, 0);
+
+  const gradientString = useMemo(() => {
+    if (totalValue === 0) return "conic-gradient(#f1f5f9 0% 100%)";
+    let currentDeg = 0;
+    const segments = data.map(d => {
+      const start = currentDeg;
+      const deg = (d.value / totalValue) * 360;
+      currentDeg += deg;
+      return `${d.color} ${start}deg ${currentDeg}deg`;
+    });
+    return `conic-gradient(${segments.join(', ')})`;
+  }, [data, totalValue]);
+
+  if (totalValue === 0) return null;
+
+  return (
+    <div className="bg-white rounded-[3rem] p-8 shadow-xl border border-pink-50 mb-6">
+      <h3 className="text-[10px] uppercase tracking-[0.2em] opacity-40 text-center mb-6">Expense Distribution</h3>
+      
+      <div className="flex items-center justify-center gap-8">
+        <div className="relative w-40 h-40 rounded-full shadow-inner" style={{ background: gradientString }}>
+          <div className="absolute inset-4 bg-white rounded-full flex items-center justify-center flex-col">
+             <span className="text-[10px] text-slate-400">Total</span>
+             <span className="text-xs font-bold text-slate-700">NT${formatNum(totalValue)}</span>
+          </div>
+        </div>
+
+        <div className="flex flex-col gap-2">
+          {data.map(d => (
+            <div key={d.name} className="flex items-center gap-2">
+              <div className="w-2 h-2 rounded-full" style={{ backgroundColor: d.color }}></div>
+              <div className="flex flex-col">
+                <span className="text-[10px] font-bold text-slate-600">{d.name}</span>
+                <span className="text-[9px] text-slate-400">{((d.value / totalValue) * 100).toFixed(1)}%</span>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+};
