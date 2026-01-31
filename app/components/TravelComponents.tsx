@@ -1,7 +1,7 @@
 // app/components/TravelComponents.tsx
 import React, { useState, useMemo } from 'react';
-// ★★★ 引入新圖示: Plane (飛機), Ship (船), Bike (單車), CarFront (汽車)
-import { Train, Info, Utensils, Navigation2, MapPin, X, ExternalLink, Save, Wallet, Plus, Trash2, Map, Tag, Clock, DollarSign, PieChart, Edit3, Sparkles, AlertTriangle, TrainFront, Footprints, RotateCw, Plane, Ship, Bike, CarFront } from 'lucide-react';
+// 引入所有需要的交通圖示
+import { Train, Info, Utensils, Navigation2, MapPin, X, ExternalLink, Save, Wallet, Plus, Trash2, Map, Tag, Clock, DollarSign, PieChart, Edit3, Sparkles, AlertTriangle, TrainFront, Footprints, RotateCw, Plane, Ship, Bike, CarFront, PlusCircle } from 'lucide-react';
 import { PAYERS, Expense, Spot, TravelInfo } from '../data/itinerary';
 
 const formatNum = (amount: number) => new Intl.NumberFormat('en-US', { maximumFractionDigits: 0 }).format(amount);
@@ -9,7 +9,7 @@ const formatNum = (amount: number) => new Intl.NumberFormat('en-US', { maximumFr
 // 時間格式驗證 (HH:MM)
 const isValidTime = (time: string) => /^([01]?[0-9]|2[0-3]):[0-5][0-9]$/.test(time);
 
-// ★★★ 輔助函式：根據模式回傳對應圖示 ★★★
+// 根據模式回傳對應圖示
 const getTravelIcon = (mode: string, size = 14, className = "") => {
   switch(mode) {
     case 'walking': return <Footprints size={size} className={className} />;
@@ -22,146 +22,119 @@ const getTravelIcon = (mode: string, size = 14, className = "") => {
   }
 };
 
-// 呼叫 API Route 查詢 Google Maps
-const fetchRouteTime = async (origin: string, dest: string, mode: string) => {
-  try {
-    if (!process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY) return null;
-
-    // ★★★ 將自定義模式轉換為 Google Maps API 支援的模式 ★★★
-    let apiMode = 'transit'; // 預設大眾運輸 (包含火車、公車、部分渡輪)
-    if (mode === 'walking') apiMode = 'walking';
-    if (mode === 'driving') apiMode = 'driving';
-    if (mode === 'cycling') apiMode = 'bicycling';
-    // flight 和 ferry 在 Google Directions API 通常歸類在 transit，或是無法精確查詢，這裡統一用 transit 嘗試
-
-    const res = await fetch('/api/route', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ origin, destination: dest, mode: apiMode }),
-    });
-    const data = await res.json();
-    if (data.duration) return data.duration;
-    return null;
-  } catch (e) {
-    return null;
-  }
-};
-
-// --- 0. Travel Connector (交通連接器) ---
+// --- 0. Travel Connector (手動交通連接器) ---
 export const TravelConnector = ({ fromSpot, toSpot, onUpdateTravel, warning }: any) => {
   const [isEditing, setIsEditing] = useState(false);
   const [duration, setDuration] = useState(fromSpot.travelToNext?.duration || 0);
   const [mode, setMode] = useState<TravelInfo['mode']>(fromSpot.travelToNext?.mode || 'transit');
-  const [isLoading, setIsLoading] = useState(false);
-
-  const handleModeChange = async (newMode: TravelInfo['mode']) => {
-    setMode(newMode);
-    
-    // 只有在有 API Key 且不是純手動設定 (如飛機通常需手動) 時才自動查詢
-    // 這裡我們還是讓所有模式都嘗試去查一下，除了 flight 這種通常查不到準確的
-    if (process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY && newMode !== 'flight') {
-        setIsLoading(true);
-        const origin = fromSpot.address || fromSpot.title;
-        const dest = toSpot.address || toSpot.title;
-        const newDuration = await fetchRouteTime(origin, dest, newMode);
-        
-        if (newDuration !== null) {
-          setDuration(newDuration);
-        }
-        setIsLoading(false);
-    }
-  };
 
   const handleSave = () => {
     onUpdateTravel(fromSpot.id, { duration: Number(duration), mode });
     setIsEditing(false);
   };
 
-  if (!fromSpot.travelToNext && !isEditing && !warning) return null;
-
-  return (
-    <div className="relative flex justify-center py-4 -my-4 z-0 group">
-      <div className="absolute left-1/2 top-0 bottom-0 w-0.5 border-l-2 border-dashed border-slate-200 -translate-x-1/2"></div>
-      
-      {warning && (
-        <div className="absolute left-[60%] top-1/2 -translate-y-1/2 w-48 bg-red-50 border border-red-100 p-2 rounded-xl shadow-sm z-20 flex items-start gap-2">
-           <AlertTriangle size={14} className="text-red-400 flex-shrink-0 mt-0.5"/>
-           <p className="text-[10px] text-red-600 leading-tight">{warning}</p>
-        </div>
-      )}
-
-      {isEditing ? (
-        <div className="relative z-10 bg-white shadow-lg p-3 rounded-2xl border border-pink-100 flex flex-col gap-2 w-64">
+  // 如果正在編輯，顯示編輯視窗
+  if (isEditing) {
+    return (
+      <div className="relative flex justify-center py-6 -my-4 z-20">
+        <div className="absolute left-1/2 top-0 bottom-0 w-0.5 border-l-2 border-dashed border-slate-200 -translate-x-1/2"></div>
+        <div className="relative z-10 bg-white shadow-xl p-4 rounded-2xl border border-pink-100 flex flex-col gap-3 w-64 animate-in fade-in zoom-in-95 duration-200">
            <div className="flex justify-between items-center text-[10px] text-slate-400 font-bold uppercase tracking-wider">
-             <span>交通方式與時間</span>
-             <button onClick={()=>setIsEditing(false)}><X size={12}/></button>
+             <span>設定交通方式</span>
+             <button onClick={()=>setIsEditing(false)}><X size={14}/></button>
            </div>
            
-           <div className="flex gap-2 items-center">
-             <div className="relative flex-1">
-               <input 
-                 type="number" 
-                 value={duration} 
-                 onChange={e=>setDuration(Number(e.target.value))} 
-                 className="w-full bg-slate-50 p-2 rounded text-center text-sm font-bold outline-none focus:bg-pink-50 transition-colors" 
-                 placeholder="0"
-               />
-               {isLoading && <div className="absolute right-2 top-2"><RotateCw size={12} className="animate-spin text-slate-400"/></div>}
-             </div>
-             <span className="text-xs font-mono text-slate-400">分鐘</span>
+           {/* 時間輸入 */}
+           <div className="flex gap-2 items-center bg-slate-50 p-2 rounded-xl">
+             <Clock size={14} className="text-slate-400"/>
+             <input 
+               type="number" 
+               value={duration} 
+               onChange={e=>setDuration(Number(e.target.value))} 
+               className="flex-1 bg-transparent text-center text-sm font-bold outline-none" 
+               placeholder="分鐘"
+             />
+             <span className="text-xs font-mono text-slate-400">min</span>
            </div>
 
-           {/* ★★★ 交通工具選擇面板 ★★★ */}
-           <div className="grid grid-cols-6 gap-1 bg-slate-50 p-1 rounded-xl">
+           {/* 交通工具選擇面板 (6種) */}
+           <div className="grid grid-cols-6 gap-1">
              {[
-               { id: 'transit', icon: <TrainFront size={14}/>, label: '鐵路' },
-               { id: 'walking', icon: <Footprints size={14}/>, label: '步行' },
-               { id: 'driving', icon: <CarFront size={14}/>, label: '開車' },
-               { id: 'cycling', icon: <Bike size={14}/>, label: '單車' },
-               { id: 'ferry', icon: <Ship size={14}/>, label: '船運' },
-               { id: 'flight', icon: <Plane size={14}/>, label: '飛行' },
+               { id: 'transit', icon: <TrainFront size={14}/>, label: '鐵路', color: 'text-blue-500' },
+               { id: 'walking', icon: <Footprints size={14}/>, label: '步行', color: 'text-green-500' },
+               { id: 'driving', icon: <CarFront size={14}/>, label: '開車', color: 'text-slate-600' },
+               { id: 'cycling', icon: <Bike size={14}/>, label: '單車', color: 'text-orange-500' },
+               { id: 'ferry', icon: <Ship size={14}/>, label: '船運', color: 'text-blue-700' },
+               { id: 'flight', icon: <Plane size={14}/>, label: '飛行', color: 'text-sky-400' },
              ].map((opt) => (
                 <button 
                   key={opt.id}
-                  onClick={()=>handleModeChange(opt.id as any)} 
-                  disabled={isLoading}
+                  onClick={()=>setMode(opt.id as any)} 
                   title={opt.label}
-                  className={`py-2 rounded-lg flex justify-center items-center transition-all ${mode === opt.id ? 'bg-white shadow text-slate-800' : 'text-slate-300 hover:text-slate-500'}`}
+                  className={`py-2 rounded-lg flex justify-center items-center transition-all ${mode === opt.id ? `bg-slate-100 shadow-inner ${opt.color}` : 'text-slate-300 hover:bg-slate-50'}`}
                 >
                   {opt.icon}
                 </button>
              ))}
            </div>
            
-           <button onClick={handleSave} className="bg-slate-800 text-white text-[10px] py-2 rounded-xl mt-1 tracking-widest uppercase hover:bg-slate-700 transition-colors">
-             確認修改
+           <button onClick={handleSave} className="bg-slate-900 text-white text-[10px] py-3 rounded-xl mt-1 tracking-widest uppercase hover:bg-slate-700 transition-colors shadow-lg shadow-slate-200">
+             確認儲存
            </button>
         </div>
-      ) : (
+      </div>
+    );
+  }
+
+  // 顯示模式 (圖示 + 時間)
+  return (
+    <div className="relative flex justify-center py-6 -my-4 z-0 group">
+      {/* 虛線連接線 */}
+      <div className="absolute left-1/2 top-0 bottom-0 w-0.5 border-l-2 border-dashed border-slate-300 -translate-x-1/2"></div>
+      
+      {/* 警告氣泡 (時間衝突時顯示) */}
+      {warning && (
+        <div className="absolute left-[60%] top-1/2 -translate-y-1/2 w-48 bg-red-50 border border-red-100 p-2 rounded-xl shadow-sm z-20 flex items-start gap-2 animate-in slide-in-from-left-2 fade-in">
+           <AlertTriangle size={14} className="text-red-400 flex-shrink-0 mt-0.5"/>
+           <p className="text-[10px] text-red-600 leading-tight">{warning}</p>
+        </div>
+      )}
+
+      {/* 如果有設定過資料，顯示圖示與時間 */}
+      {fromSpot.travelToNext ? (
         <button 
           onClick={() => setIsEditing(true)}
-          className={`relative z-10 flex flex-col items-center gap-1 bg-white px-4 py-2 rounded-full border shadow-sm transition-all hover:scale-110 active:scale-95 ${warning ? 'border-red-300 bg-red-50' : 'border-slate-100'}`}
+          className={`relative z-10 flex flex-col items-center gap-1 bg-white px-4 py-2 rounded-full border shadow-sm transition-all hover:scale-110 active:scale-95 ${warning ? 'border-red-300 bg-red-50' : 'border-slate-100 hover:border-pink-200'}`}
         >
           <div className={`${
-            mode === 'walking' ? 'text-green-400' : 
-            mode === 'cycling' ? 'text-orange-400' : 
-            mode === 'driving' ? 'text-slate-600' :
-            mode === 'flight' ? 'text-sky-400' :
-            mode === 'ferry' ? 'text-blue-600' :
+            fromSpot.travelToNext.mode === 'walking' ? 'text-green-400' : 
+            fromSpot.travelToNext.mode === 'cycling' ? 'text-orange-400' : 
+            fromSpot.travelToNext.mode === 'driving' ? 'text-slate-600' :
+            fromSpot.travelToNext.mode === 'flight' ? 'text-sky-400' :
+            fromSpot.travelToNext.mode === 'ferry' ? 'text-blue-600' :
             'text-blue-400'
           }`}>
-            {getTravelIcon(mode, 14)}
+            {getTravelIcon(fromSpot.travelToNext.mode, 16)}
           </div>
           <span className={`text-[10px] font-mono font-bold ${warning ? 'text-red-500' : 'text-slate-500'}`}>
-            {fromSpot.travelToNext?.duration || 0} min
+            {fromSpot.travelToNext.duration} min
           </span>
+        </button>
+      ) : (
+        /* 如果沒有資料，顯示一個小的 "+" 按鈕讓使用者點擊新增 */
+        <button 
+          onClick={() => setIsEditing(true)}
+          className="relative z-10 bg-white p-2 rounded-full border border-slate-200 text-slate-300 shadow-sm hover:text-pink-400 hover:border-pink-200 hover:scale-110 transition-all active:scale-95"
+          title="新增交通時間"
+        >
+          <Plus size={14} />
         </button>
       )}
     </div>
   );
 };
 
-// --- 1. 景點卡片 ---
+// --- 1. 景點卡片 (保持不變) ---
 export const SpotCard = ({ spot, onClick, colors, exchangeRate }: any) => {
   const totalJPY = spot.expenses
     .filter((e: Expense) => e.currency === 'JPY')
@@ -211,7 +184,7 @@ export const SpotCard = ({ spot, onClick, colors, exchangeRate }: any) => {
   );
 };
 
-// --- 2. 每日路線圖 ---
+// --- 2. 每日路線圖 (保持不變) ---
 export const DailyRouteMap = ({ dayData, colors }: any) => {
   if (!dayData || !dayData.spots || dayData.spots.length === 0) return null;
 
@@ -250,7 +223,7 @@ export const DailyRouteMap = ({ dayData, colors }: any) => {
   );
 };
 
-// --- 3. 詳情彈窗 ---
+// --- 3. 詳情彈窗 (保持不變) ---
 export const DetailModal = ({ spot, onClose, onNav, onUpdateExpenses, onUpdateDetails, onDeleteSpot, colors, exchangeRate, onUpdateGeneral }: any) => {
   const [time, setTime] = useState(spot.time);
   const [title, setTitle] = useState(spot.title);
@@ -511,8 +484,8 @@ export const DetailModal = ({ spot, onClose, onNav, onUpdateExpenses, onUpdateDe
   );
 };
 
-// --- 4. 新增行程 Modal ---
-export const AddSpotModal = ({ onClose, onSave, lastSpot }: any) => {
+// --- 4. 新增行程 Modal (移除 Google Check 按鈕) ---
+export const AddSpotModal = ({ onClose, onSave }: any) => {
   const [formData, setFormData] = useState({
     time: '',
     title: '',
@@ -524,71 +497,6 @@ export const AddSpotModal = ({ onClose, onSave, lastSpot }: any) => {
     currency: 'JPY',
     payer: PAYERS[0]
   });
-  
-  const [isValidating, setIsValidating] = useState(false);
-  const [googleTravelTime, setGoogleTravelTime] = useState<number | null>(null);
-  const [validationMsg, setValidationMsg] = useState<{type: 'info'|'warn'|'error', text: string} | null>(null);
-
-  const handleCheckSchedule = async () => {
-    if (!formData.time || !formData.title) return;
-    if (!isValidTime(formData.time)) {
-      setValidationMsg({ type: 'error', text: '時間格式錯誤！(請輸入 HH:MM)' });
-      return;
-    }
-    if (!lastSpot) {
-      setValidationMsg({ type: 'info', text: '這是今天的第一個行程，無法計算交通時間。' });
-      return;
-    }
-
-    setIsValidating(true);
-    setValidationMsg({ type: 'info', text: '正在計算行程合理性...' });
-
-    try {
-      const origin = lastSpot.address || lastSpot.title;
-      const dest = formData.address || formData.title;
-      
-      let travelTime = 60; // 預設值
-
-      const apiTime = await fetchRouteTime(origin, dest, 'transit');
-      if (apiTime !== null) {
-          travelTime = apiTime;
-          setGoogleTravelTime(travelTime);
-      } else {
-          setValidationMsg({ type: 'warn', text: '無法取得 Google Maps 數據，使用預設 60 分鐘計算。請手動確認。' });
-      }
-
-      // 計算時間衝突
-      const [lastH, lastM] = lastSpot.time.split(':').map(Number);
-      const lastTimeMinutes = lastH * 60 + lastM;
-      const prevEndTime = lastTimeMinutes + (Number(lastSpot.stayDuration) || 60); 
-      
-      const [newH, newM] = formData.time.split(':').map(Number);
-      const newTimeMinutes = newH * 60 + newM; 
-
-      const arrivalTimeWithTravel = prevEndTime + travelTime;
-
-      if (newTimeMinutes < arrivalTimeWithTravel) {
-        const diff = arrivalTimeWithTravel - newTimeMinutes;
-        const suggestH = Math.floor(arrivalTimeWithTravel/60).toString().padStart(2,'0');
-        const suggestM = (arrivalTimeWithTravel%60).toString().padStart(2,'0');
-        setValidationMsg({ 
-          type: 'warn', 
-          text: `警告：時間太趕！預估交通需 ${travelTime} 分鐘。建議延後至 ${suggestH}:${suggestM}（晚 ${diff} 分鐘）。` 
-        });
-      } else {
-        setValidationMsg({ 
-          type: 'info', 
-          text: `時間合理。預估交通約需 ${travelTime} 分鐘，您有充裕的時間。` 
-        });
-      }
-
-    } catch (e) {
-      console.error(e);
-      setValidationMsg({ type: 'error', text: '計算發生錯誤。' });
-    } finally {
-      setIsValidating(false);
-    }
-  };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -622,8 +530,7 @@ export const AddSpotModal = ({ onClose, onSave, lastSpot }: any) => {
       }] : []
     };
 
-    const travelInfo = googleTravelTime ? { duration: googleTravelTime, mode: 'transit' } : undefined;
-    onSave(newSpot, travelInfo);
+    onSave(newSpot);
   };
 
   return (
@@ -692,31 +599,6 @@ export const AddSpotModal = ({ onClose, onSave, lastSpot }: any) => {
             />
           </div>
 
-          {lastSpot && (
-            <div className="bg-blue-50 p-4 rounded-2xl border border-blue-100">
-               <div className="flex justify-between items-center mb-2">
-                 <span className="text-[10px] font-bold text-blue-400 flex items-center gap-1"><Sparkles size={12}/> Google Maps 檢查</span>
-                 <button 
-                   type="button" 
-                   onClick={handleCheckSchedule}
-                   disabled={isValidating}
-                   className="text-[10px] bg-white px-2 py-1 rounded-full border border-blue-200 text-blue-500 hover:bg-blue-100 disabled:opacity-50"
-                 >
-                   {isValidating ? "查詢中..." : "檢查時間合理性"}
-                 </button>
-               </div>
-               {validationMsg && (
-                 <div className={`text-[10px] p-2 rounded-lg flex items-start gap-2 ${
-                   validationMsg.type === 'error' ? 'bg-red-100 text-red-600' : 
-                   validationMsg.type === 'warn' ? 'bg-yellow-50 text-yellow-700' : 'bg-green-100 text-green-700'
-                 }`}>
-                   {validationMsg.type === 'warn' && <AlertTriangle size={12} className="mt-0.5 flex-shrink-0"/>}
-                   {validationMsg.text}
-                 </div>
-               )}
-            </div>
-          )}
-
           <div className="space-y-1">
             <label className="text-[10px] uppercase tracking-wider text-slate-400 pl-2"><Info size={10} className="inline mr-1"/>備註</label>
             <textarea 
@@ -769,7 +651,7 @@ export const AddSpotModal = ({ onClose, onSave, lastSpot }: any) => {
   );
 };
 
-// --- 5. 莫蘭迪配色圓環圖表 ---
+// --- 5. 莫蘭迪配色圓環圖表 (補回) ---
 export const ExpenseChart = ({ payerStats, exchangeRate }: any) => {
   const colors: Record<string, string> = {
     "YenLin": "#D4A5A5", 

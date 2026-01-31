@@ -10,10 +10,12 @@ export interface Expense {
   payer: string;
 }
 
-// ★★★ 更新：擴充交通模式定義 ★★★
+// ★★★ 1. 定義支援的交通方式 ★★★
+export type TravelMode = 'transit' | 'walking' | 'driving' | 'cycling' | 'flight' | 'ferry';
+
 export interface TravelInfo {
   duration: number; // 分鐘
-  mode: 'transit' | 'walking' | 'driving' | 'cycling' | 'flight' | 'ferry';
+  mode: TravelMode;
 }
 
 export interface Spot {
@@ -24,7 +26,7 @@ export interface Spot {
   tag: string;
   details: string;
   stayDuration?: number; 
-  travelToNext?: TravelInfo; 
+  travelToNext?: TravelInfo; // 到下一站的交通資訊
   access: string;
   mapUrl: string;
   prevSpotName: string;
@@ -77,7 +79,8 @@ export const itineraryData: ItineraryDay[] = [
         time: "10:30", title: "神戶機場 (UKB)", tag: "交通",
         details: "【歷史背景】這座填海而成的機場體現了日本精密的工程美學。3樓的展望台可看見明石海峽大橋。",
         stayDuration: 60,
-        travelToNext: { duration: 30, mode: 'ferry' }, // ★ 範例：改成船
+        // ★ 預設加上一個「船」的交通資訊範例
+        travelToNext: { duration: 30, mode: 'ferry' },
         access: "起始點：神戶機場",
         mapUrl: "https://www.google.com/maps/search/?api=1&query=神戶機場",
         prevSpotName: "起始點",
@@ -114,7 +117,8 @@ export const itineraryData: ItineraryDay[] = [
         time: "09:30", title: "清水寺", tag: "史蹟",
         details: "【歷史】建於778年，全木造結構不見一根釘子。春末時分，滿山翠綠襯托著櫻色，是極致的莫蘭迪配色。",
         stayDuration: 120,
-        travelToNext: { duration: 20, mode: 'walking' },
+        // ★ 預設加上一個「走路」的交通資訊範例
+        travelToNext: { duration: 15, mode: 'walking' },
         access: "淀屋橋搭乘京阪電車特急至清水五條。",
         mapUrl: "https://www.google.com/maps/search/?api=1&query=清水寺",
         prevSpotName: "大阪飯店",

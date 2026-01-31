@@ -94,7 +94,7 @@ export default function UltimateOsakaApp() {
 
         if (arrivalAtNext > nextStart) {
             const delay = arrivalAtNext - nextStart;
-            warnings[current.id] = `時間太趕！預計抵達下一站會遲到 ${delay} 分鐘 (停留${stayTime}分+交通${travelTime}分)`;
+            warnings[current.id] = `時間不足！抵達下一站會遲到 ${delay} 分鐘`;
         }
     }
     return warnings;
@@ -102,7 +102,6 @@ export default function UltimateOsakaApp() {
 
   const scheduleWarnings = useMemo(() => calculateScheduleConflicts(currentDayData.spots), [currentDayData]);
 
-  // ... (保留其他 useMemo logic: allExpensesList, dayBudget, stats, filteredExpenses) ...
   const allExpensesList = useMemo(() => {
     let list: Array<Expense & { source: string, sortKey: number }> = [];
     fixedExpenses.forEach(e => list.push({ ...e, source: '固定支出', sortKey: 0 }));
@@ -172,7 +171,7 @@ export default function UltimateOsakaApp() {
     saveToCloud({ itinerary: newItinerary });
   };
 
-  // 新增: 更新交通資訊
+  // 更新交通資訊
   const handleUpdateTravelInfo = (spotId: string, travelInfo: { duration: number, mode: 'transit'|'walking' }) => {
     const newItinerary = itinerary.map(day => ({
       ...day,
@@ -206,23 +205,10 @@ export default function UltimateOsakaApp() {
     saveToCloud({ checklistNotes: newNotes });
   };
 
-  // 修改: 新增行程時，同時更新上一站的交通資訊
-  const handleAddSpot = (newSpot: Spot, travelInfoForPrev?: any) => {
+  const handleAddSpot = (newSpot: Spot) => {
     const newItinerary = itinerary.map(day => {
       if (day.day === activeDay) {
         let updatedSpots = [...day.spots, newSpot].sort((a, b) => a.time.localeCompare(b.time));
-        
-        // 如果有 AI 估算的交通時間，且這是接在最後一個景點後面
-        if (travelInfoForPrev && day.spots.length > 0) {
-            // 找到時間順序上的前一個景點 (通常是剛剛傳入的 lastSpot，但也可能是插入中間)
-            // 這裡簡單處理：假設 user 是依序新增的，更新原本列表的最後一個
-            // 若要嚴謹，應該根據時間排序找到 newSpot 的前一個
-            const lastSpotIndex = updatedSpots.findIndex(s => s.id === newSpot.id) - 1;
-            if (lastSpotIndex >= 0) {
-                const prevSpot = updatedSpots[lastSpotIndex];
-                updatedSpots[lastSpotIndex] = { ...prevSpot, travelToNext: travelInfoForPrev };
-            }
-        }
         return { ...day, spots: updatedSpots };
       }
       return day;
@@ -279,7 +265,6 @@ export default function UltimateOsakaApp() {
 
   return (
     <div className="min-h-screen pb-32 overflow-hidden relative" style={{ backgroundColor: colors.bg, color: colors.text }}>
-      {/* 背景花瓣動畫 (保留) */}
       <div className="fixed inset-0 pointer-events-none z-0">
         {[...Array(10)].map((_, i) => (
           <div key={i} className="absolute animate-petal-fall" style={{ left: `${Math.random()*100}%`, top: `-5%`, animationDelay: `${i*1.5}s`, opacity: 0.4 }}>
@@ -339,13 +324,13 @@ export default function UltimateOsakaApp() {
                   </div>
                 </div>
               </div>
-              <div className="space-y-0"> {/* 修改 space-y，因為現在有 TravelConnector 佔位 */}
+              <div className="space-y-0">
                 {currentDayData.spots.map((spot, i) => (
                   <React.Fragment key={spot.id}>
                     <div className="mb-8">
                       <SpotCard spot={spot} colors={colors} onClick={setSelectedSpot} exchangeRate={exchangeRate} />
                     </div>
-                    {/* 交通連接器：顯示到下一站的交通時間 */}
+                    {/* 交通連接器：只要不是最後一個景點，就顯示連接器 */}
                     {i < currentDayData.spots.length - 1 && (
                       <TravelConnector 
                         fromSpot={spot} 
@@ -367,7 +352,6 @@ export default function UltimateOsakaApp() {
             </main>
           )}
 
-          {/* ... (其他 Tab: guide, wallet, currency, prep, chat 保持不變) ... */}
           {activeTab === 'guide' && (
             <div className="p-10">
               <h2 className="text-2xl font-light tracking-[0.4em] text-center mb-10 uppercase">Route</h2>
