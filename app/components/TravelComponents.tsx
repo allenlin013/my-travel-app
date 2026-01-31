@@ -1,22 +1,43 @@
 // app/components/TravelComponents.tsx
 import React, { useState, useMemo } from 'react';
-import { Train, Info, Utensils, Navigation2, MapPin, X, ExternalLink, Save, Wallet, Plus, Trash2, Map, Tag, Clock, DollarSign, PieChart, Edit3, Sparkles, AlertTriangle, TrainFront, Footprints, RotateCw } from 'lucide-react';
-import { PAYERS, Expense, Spot } from '../data/itinerary';
+// ★★★ 引入新圖示: Plane (飛機), Ship (船), Bike (單車), CarFront (汽車)
+import { Train, Info, Utensils, Navigation2, MapPin, X, ExternalLink, Save, Wallet, Plus, Trash2, Map, Tag, Clock, DollarSign, PieChart, Edit3, Sparkles, AlertTriangle, TrainFront, Footprints, RotateCw, Plane, Ship, Bike, CarFront } from 'lucide-react';
+import { PAYERS, Expense, Spot, TravelInfo } from '../data/itinerary';
 
 const formatNum = (amount: number) => new Intl.NumberFormat('en-US', { maximumFractionDigits: 0 }).format(amount);
 
 // 時間格式驗證 (HH:MM)
 const isValidTime = (time: string) => /^([01]?[0-9]|2[0-3]):[0-5][0-9]$/.test(time);
 
-// 呼叫 API Route 查詢 Google Maps (若無 Key 則回傳 null)
-const fetchRouteTime = async (origin: string, dest: string, mode: 'transit' | 'walking') => {
+// ★★★ 輔助函式：根據模式回傳對應圖示 ★★★
+const getTravelIcon = (mode: string, size = 14, className = "") => {
+  switch(mode) {
+    case 'walking': return <Footprints size={size} className={className} />;
+    case 'driving': return <CarFront size={size} className={className} />;
+    case 'cycling': return <Bike size={size} className={className} />;
+    case 'flight': return <Plane size={size} className={className} />;
+    case 'ferry': return <Ship size={size} className={className} />;
+    case 'transit': 
+    default: return <TrainFront size={size} className={className} />;
+  }
+};
+
+// 呼叫 API Route 查詢 Google Maps
+const fetchRouteTime = async (origin: string, dest: string, mode: string) => {
   try {
     if (!process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY) return null;
+
+    // ★★★ 將自定義模式轉換為 Google Maps API 支援的模式 ★★★
+    let apiMode = 'transit'; // 預設大眾運輸 (包含火車、公車、部分渡輪)
+    if (mode === 'walking') apiMode = 'walking';
+    if (mode === 'driving') apiMode = 'driving';
+    if (mode === 'cycling') apiMode = 'bicycling';
+    // flight 和 ferry 在 Google Directions API 通常歸類在 transit，或是無法精確查詢，這裡統一用 transit 嘗試
 
     const res = await fetch('/api/route', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ origin, destination: dest, mode }),
+      body: JSON.stringify({ origin, destination: dest, mode: apiMode }),
     });
     const data = await res.json();
     if (data.duration) return data.duration;
@@ -30,17 +51,23 @@ const fetchRouteTime = async (origin: string, dest: string, mode: 'transit' | 'w
 export const TravelConnector = ({ fromSpot, toSpot, onUpdateTravel, warning }: any) => {
   const [isEditing, setIsEditing] = useState(false);
   const [duration, setDuration] = useState(fromSpot.travelToNext?.duration || 0);
-  const [mode, setMode] = useState<'transit'|'walking'>(fromSpot.travelToNext?.mode || 'transit');
+  const [mode, setMode] = useState<TravelInfo['mode']>(fromSpot.travelToNext?.mode || 'transit');
   const [isLoading, setIsLoading] = useState(false);
 
-  const handleModeChange = async (newMode: 'transit' | 'walking') => {
+  const handleModeChange = async (newMode: TravelInfo['mode']) => {
     setMode(newMode);
-    if (process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY) {
+    
+    // 只有在有 API Key 且不是純手動設定 (如飛機通常需手動) 時才自動查詢
+    // 這裡我們還是讓所有模式都嘗試去查一下，除了 flight 這種通常查不到準確的
+    if (process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY && newMode !== 'flight') {
         setIsLoading(true);
         const origin = fromSpot.address || fromSpot.title;
         const dest = toSpot.address || toSpot.title;
         const newDuration = await fetchRouteTime(origin, dest, newMode);
-        if (newDuration !== null) setDuration(newDuration);
+        
+        if (newDuration !== null) {
+          setDuration(newDuration);
+        }
         setIsLoading(false);
     }
   };
@@ -64,9 +91,9 @@ export const TravelConnector = ({ fromSpot, toSpot, onUpdateTravel, warning }: a
       )}
 
       {isEditing ? (
-        <div className="relative z-10 bg-white shadow-lg p-3 rounded-2xl border border-pink-100 flex flex-col gap-2 w-52">
+        <div className="relative z-10 bg-white shadow-lg p-3 rounded-2xl border border-pink-100 flex flex-col gap-2 w-64">
            <div className="flex justify-between items-center text-[10px] text-slate-400 font-bold uppercase tracking-wider">
-             <span>交通時間</span>
+             <span>交通方式與時間</span>
              <button onClick={()=>setIsEditing(false)}><X size={12}/></button>
            </div>
            
@@ -84,23 +111,30 @@ export const TravelConnector = ({ fromSpot, toSpot, onUpdateTravel, warning }: a
              <span className="text-xs font-mono text-slate-400">分鐘</span>
            </div>
 
-           <div className="flex gap-1 bg-slate-50 p-1 rounded-xl">
-             <button 
-               onClick={()=>handleModeChange('transit')} 
-               className={`flex-1 py-2 rounded-lg flex justify-center transition-all ${mode==='transit'?'bg-white shadow text-blue-500':'text-slate-300 hover:text-slate-400'}`}
-             >
-               <TrainFront size={16}/>
-             </button>
-             <button 
-               onClick={()=>handleModeChange('walking')} 
-               className={`flex-1 py-2 rounded-lg flex justify-center transition-all ${mode==='walking'?'bg-white shadow text-green-500':'text-slate-300 hover:text-slate-400'}`}
-             >
-               <Footprints size={16}/>
-             </button>
+           {/* ★★★ 交通工具選擇面板 ★★★ */}
+           <div className="grid grid-cols-6 gap-1 bg-slate-50 p-1 rounded-xl">
+             {[
+               { id: 'transit', icon: <TrainFront size={14}/>, label: '鐵路' },
+               { id: 'walking', icon: <Footprints size={14}/>, label: '步行' },
+               { id: 'driving', icon: <CarFront size={14}/>, label: '開車' },
+               { id: 'cycling', icon: <Bike size={14}/>, label: '單車' },
+               { id: 'ferry', icon: <Ship size={14}/>, label: '船運' },
+               { id: 'flight', icon: <Plane size={14}/>, label: '飛行' },
+             ].map((opt) => (
+                <button 
+                  key={opt.id}
+                  onClick={()=>handleModeChange(opt.id as any)} 
+                  disabled={isLoading}
+                  title={opt.label}
+                  className={`py-2 rounded-lg flex justify-center items-center transition-all ${mode === opt.id ? 'bg-white shadow text-slate-800' : 'text-slate-300 hover:text-slate-500'}`}
+                >
+                  {opt.icon}
+                </button>
+             ))}
            </div>
            
            <button onClick={handleSave} className="bg-slate-800 text-white text-[10px] py-2 rounded-xl mt-1 tracking-widest uppercase hover:bg-slate-700 transition-colors">
-             儲存設定
+             確認修改
            </button>
         </div>
       ) : (
@@ -108,10 +142,16 @@ export const TravelConnector = ({ fromSpot, toSpot, onUpdateTravel, warning }: a
           onClick={() => setIsEditing(true)}
           className={`relative z-10 flex flex-col items-center gap-1 bg-white px-4 py-2 rounded-full border shadow-sm transition-all hover:scale-110 active:scale-95 ${warning ? 'border-red-300 bg-red-50' : 'border-slate-100'}`}
         >
-          {fromSpot.travelToNext?.mode === 'walking' ? 
-            <Footprints size={14} className="text-green-400"/> : 
-            <TrainFront size={14} className="text-blue-400"/>
-          }
+          <div className={`${
+            mode === 'walking' ? 'text-green-400' : 
+            mode === 'cycling' ? 'text-orange-400' : 
+            mode === 'driving' ? 'text-slate-600' :
+            mode === 'flight' ? 'text-sky-400' :
+            mode === 'ferry' ? 'text-blue-600' :
+            'text-blue-400'
+          }`}>
+            {getTravelIcon(mode, 14)}
+          </div>
           <span className={`text-[10px] font-mono font-bold ${warning ? 'text-red-500' : 'text-slate-500'}`}>
             {fromSpot.travelToNext?.duration || 0} min
           </span>
@@ -507,9 +547,8 @@ export const AddSpotModal = ({ onClose, onSave, lastSpot }: any) => {
       const origin = lastSpot.address || lastSpot.title;
       const dest = formData.address || formData.title;
       
-      let travelTime = 60; // 預設值 (如果沒有 API Key 或查詢失敗)
+      let travelTime = 60; // 預設值
 
-      // 嘗試呼叫 API (如果有 Key)
       const apiTime = await fetchRouteTime(origin, dest, 'transit');
       if (apiTime !== null) {
           travelTime = apiTime;
@@ -656,14 +695,14 @@ export const AddSpotModal = ({ onClose, onSave, lastSpot }: any) => {
           {lastSpot && (
             <div className="bg-blue-50 p-4 rounded-2xl border border-blue-100">
                <div className="flex justify-between items-center mb-2">
-                 <span className="text-[10px] font-bold text-blue-400 flex items-center gap-1"><Sparkles size={12}/> 行程檢查</span>
+                 <span className="text-[10px] font-bold text-blue-400 flex items-center gap-1"><Sparkles size={12}/> Google Maps 檢查</span>
                  <button 
                    type="button" 
                    onClick={handleCheckSchedule}
                    disabled={isValidating}
                    className="text-[10px] bg-white px-2 py-1 rounded-full border border-blue-200 text-blue-500 hover:bg-blue-100 disabled:opacity-50"
                  >
-                   {isValidating ? "查詢中..." : "檢查合理性"}
+                   {isValidating ? "查詢中..." : "檢查時間合理性"}
                  </button>
                </div>
                {validationMsg && (
@@ -730,7 +769,7 @@ export const AddSpotModal = ({ onClose, onSave, lastSpot }: any) => {
   );
 };
 
-// --- 5. 莫蘭迪配色圓環圖表 (這就是之前遺失的組件) ---
+// --- 5. 莫蘭迪配色圓環圖表 ---
 export const ExpenseChart = ({ payerStats, exchangeRate }: any) => {
   const colors: Record<string, string> = {
     "YenLin": "#D4A5A5", 

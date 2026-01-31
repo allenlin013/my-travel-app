@@ -10,10 +10,10 @@ export interface Expense {
   payer: string;
 }
 
-// 新增: 交通資訊介面
+// ★★★ 更新：擴充交通模式定義 ★★★
 export interface TravelInfo {
   duration: number; // 分鐘
-  mode: 'transit' | 'walking';
+  mode: 'transit' | 'walking' | 'driving' | 'cycling' | 'flight' | 'ferry';
 }
 
 export interface Spot {
@@ -23,8 +23,8 @@ export interface Spot {
   address?: string;
   tag: string;
   details: string;
-  stayDuration?: number; // 停留時間 (分鐘)
-  travelToNext?: TravelInfo; // 新增: 到下一站的交通資訊
+  stayDuration?: number; 
+  travelToNext?: TravelInfo; 
   access: string;
   mapUrl: string;
   prevSpotName: string;
@@ -65,7 +65,6 @@ export const initialFixedExpenses: Expense[] = [
   { id: 'f3', item: '日本 eSIM 網卡 (8天吃到飽)', amount: 600, currency: 'TWD', payer: 'Sister' }
 ];
 
-// 初始化資料：幫既有行程補上一些 travelToNext 範例
 export const itineraryData: ItineraryDay[] = [
   {
     day: 1, date: "04.11", area: "海之啟程：神戶灣與大阪燈火",
@@ -78,7 +77,7 @@ export const itineraryData: ItineraryDay[] = [
         time: "10:30", title: "神戶機場 (UKB)", tag: "交通",
         details: "【歷史背景】這座填海而成的機場體現了日本精密的工程美學。3樓的展望台可看見明石海峽大橋。",
         stayDuration: 60,
-        travelToNext: { duration: 90, mode: 'transit' }, // 範例交通時間
+        travelToNext: { duration: 30, mode: 'ferry' }, // ★ 範例：改成船
         access: "起始點：神戶機場",
         mapUrl: "https://www.google.com/maps/search/?api=1&query=神戶機場",
         prevSpotName: "起始點",
