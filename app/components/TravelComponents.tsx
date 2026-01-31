@@ -138,6 +138,7 @@ export const DetailModal = ({ spot, onClose, onNav, onUpdateExpenses, onUpdateDe
     setIsEditingDetails(false);
   };
 
+
   const handleSaveGeneral = () => {
     onUpdateGeneral(spot.id, {
       time: time,
@@ -145,6 +146,7 @@ export const DetailModal = ({ spot, onClose, onNav, onUpdateExpenses, onUpdateDe
       address: address
     });
   }
+
 
   return (
     <div className="fixed inset-0 z-[100] flex items-end justify-center bg-black/10 backdrop-blur-sm animate-in fade-in duration-300">
@@ -180,7 +182,7 @@ export const DetailModal = ({ spot, onClose, onNav, onUpdateExpenses, onUpdateDe
                 <button onClick={() => setIsEditingGeneral(true)} className="text-slate-300 hover:text-slate-500">
                   <Edit3 size={14}/>
                 </button>
-              ) : (
+              ): (
                 <button onClick={handleSaveGeneral} className="text-[10px] bg-slate-800 text-white px-3 py-1 rounded-full">
                   完成
                 </button>
@@ -209,6 +211,7 @@ export const DetailModal = ({ spot, onClose, onNav, onUpdateExpenses, onUpdateDe
                 />
               </div>
             ) : null}
+            
 
               {!isEditingDetails ? (
                 <button onClick={() => setIsEditingDetails(true)} className="text-slate-300 hover:text-slate-500">
