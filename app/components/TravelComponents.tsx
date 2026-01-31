@@ -63,7 +63,6 @@ export const DailyRouteMap = ({ dayData, colors }: any) => {
 
   const generateRouteUrl = () => {
     const spots = dayData.spots;
-    // 優先使用地址，若無則使用標題
     const origin = encodeURIComponent(spots[0].address || spots[0].title);
     const destination = encodeURIComponent(spots[spots.length - 1].address || spots[spots.length - 1].title);
     let waypoints = "";
@@ -113,7 +112,6 @@ export const DetailModal = ({ spot, onClose, onNav, onUpdateExpenses, onUpdateDe
     setExpenses(newExpenses);
   };
 
-
   const handleAddItem = () => {
     const newExp: Expense = {
       id: Date.now().toString(),
@@ -139,18 +137,15 @@ export const DetailModal = ({ spot, onClose, onNav, onUpdateExpenses, onUpdateDe
     setIsEditingDetails(false);
   };
 
-
   const handleSaveGeneral = () => {
-    onUpdateGeneral(spot.id, {
-      time: time,
-      title: title,
-      address: address
-    });
+    if (onUpdateGeneral) {
+        onUpdateGeneral(spot.id, {
+            time: time,
+            title: title,
+            address: address
+        });
+    }
   }
-
-
-
-
 
   return (
     <div className="fixed inset-0 z-[100] flex items-end justify-center bg-black/10 backdrop-blur-sm animate-in fade-in duration-300">
@@ -159,8 +154,7 @@ export const DetailModal = ({ spot, onClose, onNav, onUpdateExpenses, onUpdateDe
           <div className="w-full pr-4">
             <span className="text-[10px] tracking-[0.4em] uppercase opacity-30 italic">Details</span>
             <h2 className="text-2xl font-light mt-1 leading-tight">{spot.title}</h2>
-            {/* 顯示地址 (定位用) */}
-            {spot.address&&(
+            {spot.address && (
               <p className="text-xs text-slate-400 mt-2 flex items-start gap-1">
                 <MapPin size={12} className="mt-0.5 flex-shrink-0"/> 
                 {spot.address}
@@ -172,7 +166,11 @@ export const DetailModal = ({ spot, onClose, onNav, onUpdateExpenses, onUpdateDe
 
         <div className="space-y-8">
           
-              <Info size={14}/>基本資訊
+          {/* --- 修復的 Basic Info 區塊 --- */}
+          <section>
+            <div className="flex justify-between items-center mb-4">
+              <h4 className="text-[10px] uppercase tracking-[0.2em] flex items-center gap-2" style={{ color: colors.accent }}>
+                <Info size={14}/>基本資訊
               </h4>
                             
               {!isEditingGeneral ? (
@@ -186,28 +184,35 @@ export const DetailModal = ({ spot, onClose, onNav, onUpdateExpenses, onUpdateDe
               )}
             </div>
             
-            {isEditingGeneral ? (
+            {isEditingGeneral && (
               <div className="flex flex-col gap-2">
                 <input
                   type="text"
                   className="w-full bg-slate-50 p-4 rounded-2xl text-sm leading-loose outline-none text-slate-600"
                   value={time}
                   onChange={(e) => setTime(e.target.value)}
+                  placeholder="時間"
                 />
                 <input
                   type="text"
                   className="w-full bg-slate-50 p-4 rounded-2xl text-sm leading-loose outline-none text-slate-600"
                   value={title}
                   onChange={(e) => setTitle(e.target.value)}
+                  placeholder="地點名稱"
                 />
                 <input
                   type="text"
                   className="w-full bg-slate-50 p-4 rounded-2xl text-sm leading-loose outline-none text-slate-600"
                   value={address}
                   onChange={(e) => setAddress(e.target.value)}
+                  placeholder="地址"
                 />
               </div>
-            ) : null}
+            )}
+          </section>
+          {/* --- 修復結束 --- */}
+
+          <section>
              <div className="flex justify-between items-center mb-4">
               <h4 className="text-[10px] uppercase tracking-[0.2em] flex items-center gap-2" style={{ color: colors.accent }}>
                 <Info size={14}/> 介紹 / 備註
@@ -235,6 +240,7 @@ export const DetailModal = ({ spot, onClose, onNav, onUpdateExpenses, onUpdateDe
                 {spot.details}
               </p>
             )}
+          </section>
 
           <div className="bg-slate-50 p-6 rounded-[2.5rem]">
             <div className="flex justify-between items-center mb-4">
@@ -331,9 +337,6 @@ export const DetailModal = ({ spot, onClose, onNav, onUpdateExpenses, onUpdateDe
     </div>
   );
 };
-
-
-
 
 // --- 4. 新增行程 Modal ---
 export const AddSpotModal = ({ onClose, onSave }: any) => {
@@ -484,7 +487,6 @@ export const AddSpotModal = ({ onClose, onSave }: any) => {
     </div>
   );
 };
-
 
 // --- 5. 莫蘭迪配色圓環圖表 ---
 export const ExpenseChart = ({ payerStats, exchangeRate }: any) => {

@@ -206,7 +206,7 @@ export default function UltimateOsakaApp() {
     
     if (mode === 'spot') {
       const query = selectedSpot.address || selectedSpot.title;
-      const url = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(query)}`;
+      const url = `[https://www.google.com/maps/search/?api=1&query=$](https://www.google.com/maps/search/?api=1&query=$){encodeURIComponent(query)}`;
       window.open(url, '_blank');
     } else {
       const currentDaySpots = currentDayData.spots;
